@@ -5,23 +5,18 @@ import {
   UPDATED_NOTIFICATION,
 } from "../../src/usecases/sendBookingNotification";
 
-const determineNotificationType = (sideA, sideB) => {
-  if (
-    sideA.callId != sideB.callId ||
-    sideA.recipientEmail != sideB.recipientEmail ||
-    sideA.recipientNumber != sideB.recipientNumber ||
-    sideA.callTime != sideB.callTime
-  ) {
-    if (
-      sideA.recipientEmail !== sideB.recipientEmail ||
-      sideA.recipientNumber !== sideB.recipientNumber
-    )
-      return NEW_NOTIFICATION;
+const determineNotificationType = (
+  sideACallTime,
+  sideBCallTime,
+  sideAContact,
+  sideBContact
+) => {
+  if (sideACallTime == sideBCallTime && sideAContact == sideBContact)
+    return false;
 
-    return UPDATED_NOTIFICATION;
-  }
-
-  return false;
+  return sideAContact !== sideBContact
+    ? NEW_NOTIFICATION
+    : UPDATED_NOTIFICATION;
 };
 
 export default withContainer(
@@ -46,8 +41,8 @@ export default withContainer(
       return;
     }
 
-    if (!body.callId) {
-      respond(400, { err: { callId: "callId must be present" } });
+    if (!body.id) {
+      respond(400, { err: { id: "id must be present" } });
       return;
     }
 
@@ -64,16 +59,14 @@ export default withContainer(
       return;
     }
 
-    const { scheduledCall } = await container.getRetrieveVisitByCallId()(
-      body.callId
-    );
+    const { scheduledCall } = await container.getRetrieveVisitById()(body.id);
     if (!scheduledCall) {
       respond(404, { err: "call does not exist" });
       return;
     }
 
     const updatedCall = {
-      callId: body.callId,
+      id: body.id,
       patientName: body.patientName,
       recipientName: body.contactName,
       recipientEmail: body.contactEmail,
@@ -82,7 +75,7 @@ export default withContainer(
     };
 
     try {
-      await container.getUpdateVisitByCallId()(updatedCall);
+      await container.getUpdateVisitById()(updatedCall);
       respond(200, { success: true });
     } catch (updateError) {
       console.log(updateError);
@@ -96,28 +89,50 @@ export default withContainer(
         userIsAuthenticatedResponse.trustId
       );
 
-      const notificationType = determineNotificationType(
-        updatedCall,
-        scheduledCall
-      );
-      if (!notificationType) return;
+      const sendNotification = async (type) => {
+        const notificationType = determineNotificationType(
+          updatedCall.callTime,
+          scheduledCall.callTime,
+          type == "email"
+            ? updatedCall.recipientEmail
+            : updatedCall.recipientNumber,
+          type == "email"
+            ? scheduledCall.recipientEmail
+            : scheduledCall.recipientNumber
+        );
+        if (!notificationType) return;
 
-      const sendBookingNotification = container.getSendBookingNotification();
-      const {
-        success: bookingNotificationSuccess,
-        errors: bookingNotificationErrors,
-      } = await sendBookingNotification({
-        mobileNumber: body.contactNumber,
-        emailAddress: body.contactEmail,
-        wardName: ward.name,
-        hospitalName: ward.hospitalName,
-        visitDateAndTime: body.callTime,
-        notificationType: notificationType,
-      });
+        const sendBookingNotification = container.getSendBookingNotification();
+        return await sendBookingNotification({
+          mobileNumber: type == "number" ? body.contactNumber : undefined,
+          emailAddress: type == "email" ? body.contactEmail : undefined,
+          wardName: ward.name,
+          hospitalName: ward.hospitalName,
+          visitDateAndTime: body.callTime,
+          notificationType: notificationType,
+        });
+      };
 
-      if (!bookingNotificationSuccess) {
-        respond(500, { err: bookingNotificationErrors });
-        return;
+      if (updatedCall.recipientEmail) {
+        const {
+          success: emailSuccess,
+          errors: emailErrors,
+        } = await sendNotification("email");
+        if (!emailSuccess) {
+          respond(500, { err: emailErrors });
+          return;
+        }
+      }
+
+      if (updatedCall.recipientNumber) {
+        const {
+          success: numberSuccess,
+          errors: numberErrors,
+        } = await sendNotification("number");
+        if (!numberSuccess) {
+          respond(500, { err: numberErrors });
+          return;
+        }
       }
     } catch (notificationError) {
       console.log(notificationError);
