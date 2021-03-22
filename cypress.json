@@ -2,13 +2,35 @@
   "env": {
     "patientName": "Test Patient",
     "contactNumber": "07123456789",
-    "validWard": "TEST1",
-    "validTrustAdminCode": "admin",
-    "validTrustAdminPassword": "trustpassword",
-    "validAdminCode": "super",
-    "validAdminPassword": "adminpassword",
+    "validWardCode": "TEST1",
+    "validWardPin": "1234",
+    "validTrustManagerEmail": "nhs-manager14@nhs.co.uk",
+    "validTrustManagerPassword": "P@55w0rd",
+    "trustManagerEmailToResetPassword": "nhs-manager13@nhs.co.uk",
+    "validAdminEmail": "nhs-admin@nhs.co.uk",
+    "validAdminPassword": "P@55w0rd",
     "fakeWard": "FAKENHS",
-    "baseUrl": "http://localhost:3001"
+    "baseUrl": "http://localhost:3001",
+    "tokenVersion": "3",
+    "uuid": "",
+    "hash": "",
+    "signUpManagerEmail": "nhs-person@nhs.co.uk",
+    "signUpPassword": "password",
+    "signUpNewOrganisation": "Alder Hey Children's NHS Foundation Trust",
+    "signUpNewOrganisationId": 2,
+    "signUpExistingOrganisation": "Airedale NHS Foundation Trust",
+    "signUpExistingOrganisationId": 1,
+    "codeCoverage": {
+      "url": "/api/__coverage__"
+    }
   },
-  "video": false
+  "video": false,
+  "lighthouse": {
+    "performance": 15,
+    "accessibility": 95,
+    "best-practices": 95,
+    "seo": 0,
+    "pwa": 0
+  },
+  "projectId": "vv"
 }

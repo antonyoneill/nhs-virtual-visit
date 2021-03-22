@@ -1,11 +1,15 @@
 import moment from "moment";
-import { ARCHIVED } from "../../src/helpers/visitStatus";
+import { ARCHIVED } from "../helpers/visitStatus";
 
-const archiveWard = ({ getRetrieveWardById, getDb }) => async (
-  wardId,
-  trustId
-) => {
+const archiveWard = ({
+  getRetrieveWardById,
+  getUpdateWardArchiveTimeByIdGateway,
+  getUpdateCallStatusesByWardIdGateway,
+  logger
+}) => async (wardId, trustId) => {
   const retrieveWardById = getRetrieveWardById();
+  const updateCallStatusesByWardIdGateway = getUpdateCallStatusesByWardIdGateway();
+  const updateWardArchiveTimeByIdGateway = getUpdateWardArchiveTimeByIdGateway();
 
   const retrieveResult = await retrieveWardById(wardId, trustId);
 
@@ -13,17 +17,10 @@ const archiveWard = ({ getRetrieveWardById, getDb }) => async (
     return { success: false, error: "Ward does not exist" };
   }
 
-  const db = await getDb();
-
   try {
-    await db.result(
-      `UPDATE scheduled_calls_table
-       SET status = $1
-       WHERE ward_id = $2`,
-      [ARCHIVED, wardId]
-    );
+    await updateCallStatusesByWardIdGateway(wardId, ARCHIVED);
   } catch (err) {
-    console.error(
+    logger.error(
       `Failed to remove visits [${wardId}] from ward ${trustId}`,
       err
     );
@@ -31,15 +28,9 @@ const archiveWard = ({ getRetrieveWardById, getDb }) => async (
   }
 
   try {
-    await db.result(
-      `UPDATE wards
-        SET archived_at = $2
-        WHERE id = $1
-    `,
-      [wardId, moment().toISOString()]
-    );
+    await updateWardArchiveTimeByIdGateway(wardId, moment().toISOString());
   } catch (err) {
-    console.error(
+    logger.error(
       `Failed to remove ward [${wardId}] from trust ${trustId}`,
       err
     );
@@ -48,4 +39,5 @@ const archiveWard = ({ getRetrieveWardById, getDb }) => async (
 
   return { success: true, error: null };
 };
+
 export default archiveWard;

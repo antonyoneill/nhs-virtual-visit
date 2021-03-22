@@ -9,6 +9,7 @@ import VisitorContactDetailsInput from "../VisitorContactDetailsInput";
 import validateMobileNumber from "../../helpers/validateMobileNumber";
 import validateDateAndTime from "../../helpers/validateDateAndTime";
 import validateEmailAddress from "../../helpers/validateEmailAddress";
+import { hasError, errorMessage } from "../../helpers/pageErrorHandler";
 
 const VisitForm = ({
   heading,
@@ -34,14 +35,6 @@ const VisitForm = ({
   const [contactName, setContactName] = useState(initialContactName || "");
   const [patientName, setPatientName] = useState(initialPatientName || "");
   const [callDateTime, setCallDateTime] = useState(initialCallDateTime || "");
-
-  const hasError = (field) =>
-    errors.find((error) => error.id === `${field}-error`);
-
-  const getErrorMessage = (field) => {
-    const error = errors.filter((error) => error.id === `${field}-error`);
-    return error.length === 1 ? error[0].message : "";
-  };
 
   const isValidName = (input) => {
     if (input.length !== 0) {
@@ -135,68 +128,66 @@ const VisitForm = ({
     <form onSubmit={onSubmit}>
       <Heading>{heading}</Heading>
       <FormGroup>
-        <Label htmlFor="patient-name" className="nhsuk-label--l">
+        <Label htmlFor="patient-name" className="nhsuk-label--m">
           What is the patient&apos;s name?
         </Label>
         <Input
           id="patient-name"
           type="text"
-          hasError={hasError("patient-name")}
+          hasError={hasError(errors, "patient-name")}
           errorMessage="Enter the patient's name"
-          className="nhsuk-u-font-size-32 nhsuk-input--width-10 nhsuk-u-margin-bottom-5"
-          style={{ padding: "16px!important", height: "64px" }}
+          className="nhsuk-input--width-20"
           onChange={(event) => setPatientName(event.target.value)}
           name="patient-name"
           autoComplete="off"
           value={patientName || ""}
         />
-
-        <Label htmlFor="contact-name" className="nhsuk-label--l">
+      </FormGroup>
+      <FormGroup>
+        <Label htmlFor="contact-name" className="nhsuk-label--m">
           What is the key contact&apos;s name?
         </Label>
         <Input
           id="contact-name"
           type="text"
-          hasError={hasError("contact-name")}
+          hasError={hasError(errors, "contact-name")}
           errorMessage="Enter the key contact's name"
-          className="nhsuk-u-font-size-32 nhsuk-input--width-10 nhsuk-u-margin-bottom-5"
-          style={{ padding: "16px!important", height: "64px" }}
+          className="nhsuk-input--width-20"
           onChange={(event) => setContactName(event.target.value)}
           name="contact-name"
           autoComplete="off"
           value={contactName || ""}
         />
-
-        <VisitorContactDetailsInput
-          textMessageIsChecked={textMessageIsChecked}
-          setTextMessageIsChecked={setTextMessageIsChecked}
-          emailIsChecked={emailIsChecked}
-          setEmailIsChecked={setEmailIsChecked}
-          hasContactMethodUncheckedError={hasError("contact-method")}
-          hasContactNumberError={hasError("contact-number")}
-          contactNumber={contactNumber}
-          setContactNumber={setContactNumber}
-          hasContactEmailError={hasError("contact-email")}
-          contactEmail={contactEmail}
-          setContactEmail={setContactEmail}
-        />
-
-        <DateSelect
-          onChange={(date) => setCallDateTime(date)}
-          name="call-datetime"
-          hasDateError={hasError("call-date")}
-          dateErrorMessage={
-            hasError("call-date") && getErrorMessage("call-date")
-          }
-          hasTimeError={hasError("call-time")}
-          timeErrorMessage={
-            hasError("call-time") && getErrorMessage("call-time")
-          }
-          initialDate={callDateTime}
-        ></DateSelect>
-        <br></br>
-        <Button className="nhsuk-u-margin-top-5">Continue</Button>
       </FormGroup>
+      <VisitorContactDetailsInput
+        textMessageIsChecked={textMessageIsChecked}
+        setTextMessageIsChecked={setTextMessageIsChecked}
+        emailIsChecked={emailIsChecked}
+        setEmailIsChecked={setEmailIsChecked}
+        hasContactMethodUncheckedError={hasError(errors, "contact-method")}
+        hasContactNumberError={hasError(errors, "contact-number")}
+        contactNumber={contactNumber}
+        setContactNumber={setContactNumber}
+        hasContactEmailError={hasError(errors, "contact-email")}
+        contactEmail={contactEmail}
+        setContactEmail={setContactEmail}
+      />
+
+      <DateSelect
+        onChange={(date) => setCallDateTime(date)}
+        name="call-datetime"
+        hasDateError={hasError(errors, "call-date")}
+        dateErrorMessage={
+          hasError(errors, "call-date") && errorMessage(errors, "call-date")
+        }
+        hasTimeError={hasError(errors, "call-time")}
+        timeErrorMessage={
+          hasError(errors, "call-time") && errorMessage(errors, "call-time")
+        }
+        initialDate={callDateTime}
+      ></DateSelect>
+      <br></br>
+      <Button className="nhsuk-u-margin-top-5">Continue</Button>
     </form>
   );
 };

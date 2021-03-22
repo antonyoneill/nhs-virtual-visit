@@ -1,10 +1,11 @@
 import React from "react";
 import "./styles.scss";
 import Router from "next/router";
-import formatDateAndTime from "../../helpers/formatDateAndTime";
+import formatDateAndTime from "../../helpers/formatDatesAndTimes";
 import VisitSummaryList from "../VisitSummaryList";
 import TimeFromNow from "../TimeFromNow";
 import Text from "../Text";
+import { COMPLETE, statusToId } from "../../helpers/visitStatus";
 
 const VisitsPanelList = ({ visits, title, showButtons }) => {
   if (visits.length != 0) {
@@ -24,6 +25,7 @@ const VisitsPanelList = ({ visits, title, showButtons }) => {
                 <div className="app-visit-card-body">
                   <details
                     className="nhsuk-details nhsuk-u-margin-0"
+                    data-testid={`details-summary-${visit.patientName}`}
                     nhsuk-polyfilled="true"
                     id="nhsuk-details0"
                   >
@@ -37,6 +39,7 @@ const VisitsPanelList = ({ visits, title, showButtons }) => {
                       <span className="nhsuk-details__summary-text">
                         {formatDateAndTime(visit.callTime, "HH:mm")} -{" "}
                         {visit.patientName}
+                        {visit.status === statusToId(COMPLETE) && " (Complete)"}
                       </span>
                     </summary>
                     <div
@@ -67,6 +70,19 @@ const VisitsPanelList = ({ visits, title, showButtons }) => {
                             }}
                           >
                             Start
+                          </button>
+
+                          <button
+                            data-testid={`edit-visit-button-${visit.patientName}`}
+                            className="nhsuk-button nhsuk-u-margin-right-5 nhsuk-button--secondary"
+                            onClick={() => {
+                              Router.push(
+                                "/wards/visits/[id]/edit",
+                                `/wards/visits/${visit.id}/edit`
+                              );
+                            }}
+                          >
+                            Edit
                           </button>
 
                           <button

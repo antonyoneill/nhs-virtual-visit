@@ -4,7 +4,7 @@ import Layout from "../../src/components/Layout";
 import propsWithContainer from "../../src/middleware/propsWithContainer";
 import verifyTrustAdminToken from "../../src/usecases/verifyTrustAdminToken";
 import { GridRow, GridColumn } from "../../src/components/Grid";
-import Heading from "../../src/components/Heading";
+import TrustAdminHeading from "../../src/components/TrustAdminHeading";
 import NumberTile from "../../src/components/NumberTile";
 import Text from "../../src/components/Text";
 import AnchorLink from "../../src/components/AnchorLink";
@@ -15,13 +15,13 @@ const TrustAdmin = ({
   error,
   wards,
   hospitals,
-  leastVisited,
-  mostVisited,
-  trust,
-  averageParticipantsInVisit,
+  leastVisitedList,
+  mostVisitedList,
+  organisation,
+  totalCompletedVisits,
   wardVisitTotalsStartDate,
   reportingStartDate,
-  visitsScheduled,
+  totalBookedVisits,
   averageVisitTime,
   averageVisitsPerDay,
 }) => {
@@ -31,34 +31,27 @@ const TrustAdmin = ({
 
   return (
     <Layout
-      title={`Dashboard for ${trust.name}`}
+      title={`Dashboard for ${organisation.name}`}
       showNavigationBarForType={TRUST_ADMIN}
       showNavigationBar={true}
     >
+      <TrustAdminHeading trustName={organisation.name} subHeading="Dashboard" />
       <GridRow>
         <GridColumn width="full">
-          <Heading>
-            <span className="nhsuk-caption-l">
-              {trust.name}
-              <span className="nhsuk-u-visually-hidden">-</span>
-            </span>
-            Dashboard
-          </Heading>
-
           <GridRow className="nhsuk-u-padding-bottom-3">
             <GridColumn
               className="nhsuk-u-padding-bottom-3 nhsuk-u-one-half"
               width="one-third"
             >
-              <NumberTile number={visitsScheduled} label="booked visits" />
+              <NumberTile number={totalBookedVisits} label="booked visits" />
             </GridColumn>
             <GridColumn
               className="nhsuk-u-padding-bottom-3 nhsuk-u-one-half"
               width="one-third"
             >
               <NumberTile
-                number={averageParticipantsInVisit}
-                label="average participants in a visit"
+                number={totalCompletedVisits}
+                label="completed visits"
               />
             </GridColumn>
           </GridRow>
@@ -107,12 +100,12 @@ const TrustAdmin = ({
             <GridColumn className="nhsuk-u-one-half" width="one-half">
               <div className="nhsuk-panel nhsuk-u-margin-top-0 nhsuk-u-margin-bottom-0">
                 <h3>Most booked visits</h3>
-                {mostVisited.length > 0 ? (
+                {mostVisitedList.length > 0 ? (
                   <ol>
-                    {mostVisited.map((hospital) => (
+                    {mostVisitedList.map((hospital) => (
                       <li key={hospital.id}>
                         <AnchorLink
-                          href={`/trust-admin/hospitals/${hospital.id}`}
+                          href={`/trust-admin/hospitals/${hospital.uuid}`}
                         >
                           {hospital.name}
                           <span className="nhsuk-u-visually-hidden">
@@ -120,7 +113,7 @@ const TrustAdmin = ({
                             {hospital.name}
                           </span>
                         </AnchorLink>{" "}
-                        ({hospital.totalVisits})
+                        ({hospital.total})
                       </li>
                     ))}
                   </ol>
@@ -132,12 +125,12 @@ const TrustAdmin = ({
             <GridColumn className="nhsuk-u-one-half" width="one-half">
               <div className="nhsuk-panel nhsuk-u-margin-top-0 nhsuk-u-margin-bottom-0">
                 <h3>Least booked visits</h3>
-                {leastVisited.length > 0 ? (
+                {leastVisitedList.length > 0 ? (
                   <ol>
-                    {leastVisited.map((hospital) => (
+                    {leastVisitedList.map((hospital) => (
                       <li key={hospital.id}>
                         <AnchorLink
-                          href={`/trust-admin/hospitals/${hospital.id}`}
+                          href={`/trust-admin/hospitals/${hospital.uuid}`}
                         >
                           {hospital.name}
                           <span className="nhsuk-u-visually-hidden">
@@ -145,7 +138,7 @@ const TrustAdmin = ({
                             {hospital.name}
                           </span>
                         </AnchorLink>{" "}
-                        ({hospital.totalVisits})
+                        ({hospital.total})
                       </li>
                     ))}
                   </ol>
@@ -174,74 +167,95 @@ const TrustAdmin = ({
 
 export const getServerSideProps = propsWithContainer(
   verifyTrustAdminToken(async ({ container, authenticationToken }) => {
-    const { wards, error: wardError } = await container.getRetrieveWards()(
-      authenticationToken.trustId
-    );
-    const hospitalsResponse = await container.getRetrieveHospitalsByTrustId()(
-      authenticationToken.trustId
-    );
-    const { trust, error: trustError } = await container.getRetrieveTrustById()(
-      authenticationToken.trustId
-    );
-    const retrieveHospitalVisitTotals = await container.getRetrieveHospitalVisitTotals()(
-      authenticationToken.trustId
-    );
-    const retrieveWardVisitTotals = await container.getRetrieveWardVisitTotals()(
-      authenticationToken.trustId
-    );
     const {
-      averageParticipantsInVisit,
-      error: averageParticipantsInVisitError,
-    } = await container.getRetrieveAverageParticipantsInVisit()(
+      departments,
+      error: wardError,
+    } = await container.getRetrieveDepartments()(authenticationToken.trustId);
+    const {
+      facilities,
+      error: facilitiesError,
+    } = await container.getRetrieveFacilitiesByOrgId()(
       authenticationToken.trustId
     );
+
+    const {
+      organisation,
+      error: organisationError,
+    } = await container.getRetrieveOrganisationById()(
+      authenticationToken.trustId
+    );
+
+    const {
+      mostVisitedList,
+      leastVisitedList,
+      error: mostAndLeastVisitedListError
+     } = await container.getRetrieveTotalBookedVisitsForFacilitiesByOrgId()(
+      authenticationToken.trustId
+    );
+
+    const { 
+      total: totalBookedVisits, 
+      error: totalBookedVisitsError } = await container.getRetrieveTotalVisitsByStatusAndOrgId()(
+      authenticationToken.trustId,
+    );
+    
+    const { 
+      total: totalCompletedVisits, 
+      error: totalCompletedVisitsError } = await container.getRetrieveTotalCompletedVisitsByOrgOrFacilityId()(
+      { orgId: authenticationToken.trustId },
+    );
+
     const {
       startDate: wardVisitTotalsStartDate,
       error: wardVisitTotalsStartDateError,
-    } = await container.getRetrieveWardVisitTotalsStartDateByTrustId()(
+    } = await container.getRetrieveDepartmentVisitTotalsStartDateByOrganisationId()(
       authenticationToken.trustId
     );
+
     const {
       startDate: reportingStartDate,
       error: reportingStartDateError,
-    } = await container.getRetrieveReportingStartDateByTrustId()(
+    } = await container.getRetrieveReportingStartDateByOrganisationId()(
       authenticationToken.trustId
     );
 
     const {
       averageVisitTime,
       error: averageVisitTimeSecondsError,
-    } = await container.getRetrieveAverageVisitTimeByTrustId()(
+    } = await container.getRetrieveAverageVisitTimeByOrganisationId()(
       authenticationToken.trustId
     );
 
     const {
       averageVisitsPerDay,
       error: averageVisitsPerDayError,
-    } = await container.getRetrieveAverageVisitsPerDayByTrustId()(
+    } = await container.getRetrieveAverageVisitsPerDayByOrganisationId()(
       authenticationToken.trustId
     );
-
+    
     const error =
       wardError ||
-      trustError ||
-      averageParticipantsInVisitError ||
+      facilitiesError ||
+      totalBookedVisitsError ||
+      totalCompletedVisitsError ||
       wardVisitTotalsStartDateError ||
       reportingStartDateError ||
       averageVisitTimeSecondsError ||
-      averageVisitsPerDayError;
+      averageVisitsPerDayError ||
+      mostAndLeastVisitedListError ||
+      organisationError;
 
     return {
       props: {
-        wards: wards,
-        hospitals: hospitalsResponse.hospitals,
-        leastVisited: retrieveHospitalVisitTotals.leastVisited,
-        mostVisited: retrieveHospitalVisitTotals.mostVisited,
-        trust: { name: trust?.name },
+        wards: departments,
+        hospitals: facilities,
+        leastVisitedList,
+        mostVisitedList,
+        organisation,
         wardVisitTotalsStartDate,
         reportingStartDate,
-        averageParticipantsInVisit,
-        visitsScheduled: retrieveWardVisitTotals.total.toLocaleString(),
+        totalCompletedVisits,
+        totalBookedVisits,
         averageVisitTime,
         averageVisitsPerDay: averageVisitsPerDay.toFixed(1),
         error,

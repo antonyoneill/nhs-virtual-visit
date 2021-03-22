@@ -21,6 +21,7 @@ const Select = ({
       ) : null}
       <select
         defaultValue={defaultValue || DEFAULT_VALUE}
+        id="nhs-dropdown-menu"
         className={classnames(
           {
             "nhsuk-select--error": hasError,
@@ -30,11 +31,12 @@ const Select = ({
         )}
         {...props}
       >
-        <option value="DEFAULT" disabled>
-          {prompt}
-        </option>
+        <option value="DEFAULT">{prompt}</option>
         {options.map((option) => (
-          <option key={option.id} value={option.id}>
+          <option
+            key={option.id}
+            value={option.id}
+          >
             {option.name}
           </option>
         ))}

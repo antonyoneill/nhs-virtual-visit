@@ -1,20 +1,16 @@
 import withContainer from "../../src/middleware/withContainer";
+import {
+  validateHttpMethod,
+  checkIfAuthorised,
+} from "../../src/helpers/apiErrorHandler";
 
 export default withContainer(
   async ({ headers, body, method }, res, { container }) => {
-    if (method !== "POST") {
-      res.status(405);
-      res.end(JSON.stringify({ err: "method not allowed" }));
-      return;
-    }
+    validateHttpMethod("POST", method, res);
 
     const adminIsAuthenticated = container.getAdminIsAuthenticated();
 
-    if (!adminIsAuthenticated(headers.cookie)) {
-      res.status(401);
-      res.end(JSON.stringify({ err: "not authenticated" }));
-      return;
-    }
+    checkIfAuthorised(adminIsAuthenticated(headers.cookie), res);
 
     if (!body.name) {
       res.status(409);
@@ -42,7 +38,7 @@ export default withContainer(
 
     res.setHeader("Content-Type", "application/json");
 
-    const createTrust = container.getCreateTrust();
+    const createTrust = container.getCreateOrganisation();
 
     const { trustId, error } = await createTrust({
       name: body.name,

@@ -1,68 +1,65 @@
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import Button from "../Button";
 import FormGroup from "../FormGroup";
-import Heading from "../Heading";
+import FormHeading from "../FormHeading";
 import Input from "../Input";
 import ErrorSummary from "../ErrorSummary";
 import Label from "../Label";
 import Router from "next/router";
-import Select from "../../components/Select";
 import isPresent from "../../helpers/isPresent";
+import Form from "../Form";
+import { hasError, errorMessage } from "../../helpers/pageErrorHandler";
 
-const EditWardForm = ({
-  errors,
-  setErrors,
-  id,
-  initialName,
-  initialHospitalId,
-  hospitals,
-}) => {
-  const hospital = hospitals.find(
-    (hospital) => hospital.id === initialHospitalId
-  );
-  const [hospitalId, setHospitalId] = useState(hospital.id);
-  const [wardName, setWardName] = useState(initialName);
+const EditWardForm = ({ errors, setErrors, hospital, ward }) => {
+  const [wardName, setWardName] = useState(ward.name);
+  const [wardPin, setWardPin] = useState(ward.pin);
+  const [wardPinConfirmation, setWardPinConfirmation] = useState(ward.pin);
   let onSubmitErrors = [];
 
-  const hasError = (field) =>
-    errors.find((error) => error.id === `${field}-error`);
-
-  const errorMessage = (field) => {
-    const error = errors.filter((err) => err.id === `${field}-error`);
-    return error.length === 1 ? error[0].message : "";
-  };
-
-  const submitAnswers = async () =>
-    await fetch("/api/update-a-ward", {
-      method: "PATCH",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        id,
-        name: wardName,
-        hospitalId,
-      }),
-    })
-      .then((response) => {
-        if (!response.ok) throw Error(response.status);
-        return response.json();
-      })
-      .then((response) =>
-        Router.push({
-          pathname: `/trust-admin/wards/${response.wardId}/edit-success`,
-        })
-      )
-      .catch(() => {
-        onSubmitErrors.push({
-          id: "ward-update-error",
-          message: "There was a problem saving your changes",
-        });
-        setErrors(onSubmitErrors);
+  const submitAnswers = async () => {
+    let payload = {
+      uuid: ward.uuid,
+      name: wardName,
+    }
+    if (wardPin !== ward.pin) {
+      payload = { ...payload, pin: wardPin }
+    }
+    try {
+      const response = await fetch("/api/update-a-department", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
 
-  const onSubmit = useCallback(async (event) => {
-    event.preventDefault();
+      if (response.status == 201) {
+        const { uuid: wardUuid } = await response.json();
+        await Router.push({
+          pathname: `/trust-admin/hospitals/${hospital.uuid}/wards/${wardUuid}/edit-ward-success`,
+          query: { hospitalName: hospital.name },
+        });
+        return true;
+      } else {
+        const { error } = await response.json();
+        onSubmitErrors.push({
+          id: "ward-update-error",
+          message: error,
+        });
+        setErrors(onSubmitErrors);
+      }
+    } catch (e) {
+      onSubmitErrors.push({
+        id: "ward-update-error",
+        message: "There was a problem saving your changes",
+      });
+      setErrors(onSubmitErrors);
+    }
+
+    return false;
+  };
+
+  const onSubmit = async () => {
     onSubmitErrors = [];
     const setWardNameError = (errors) => {
       errors.push({
@@ -71,68 +68,104 @@ const EditWardForm = ({
       });
     };
 
-    const setHospitalIdError = (errors) => {
-      errors.push({
-        id: "hospital-id-error",
-        message: "Select a hospital",
-      });
-    };
-
     if (!isPresent(wardName)) {
       setWardNameError(onSubmitErrors);
     }
-    if (!isPresent(hospitalId)) {
-      setHospitalIdError(onSubmitErrors);
+
+    if(!wardPin) {
+      onSubmitErrors.push({
+        id: "ward-pin-error",
+        message: "A pin is required",
+      })
+    } else if (wardPin!== ward.pin && wardPin.length != 4 ) {
+      onSubmitErrors.push({
+        id: "ward-pin-length-error",
+        message: "Ward pin is only 4 characters",
+      })
     }
+
+    if (!wardPinConfirmation) {
+      onSubmitErrors.push({
+        id: "ward-pin-confirmation-error",
+        message: "A confirmation pin is required"
+      })
+    } else if (wardPinConfirmation !== ward.pin && wardPinConfirmation.length != 4 ) {
+      onSubmitErrors.push({
+        id: "ward-pin-confirmation-length-error",
+        message: "Confirmation pin is only 4 characters",
+      })
+    }
+
+    if (wardPin !== wardPinConfirmation) {
+      onSubmitErrors.push({
+        id: "ward-pin-mismatch-error",
+        message: "Ward pin and pin cofirmation does not match"
+      })
+    }
+
     if (onSubmitErrors.length === 0) {
       await submitAnswers();
     }
     setErrors(onSubmitErrors);
-  });
+  };
 
   return (
     <>
       <ErrorSummary errors={errors} />
-      <form onSubmit={onSubmit}>
-        <Heading>Edit a ward</Heading>
+      <Form onSubmit={onSubmit}>
+        <FormHeading>Edit a ward</FormHeading>
         <FormGroup>
-          <Label htmlFor="ward-name" className="nhsuk-label--l">
-            What is the ward name?
+          <Label htmlFor="ward-name" className="nhsuk-label--m">
+            Edit a ward name
           </Label>
           <Input
             id="ward-name"
             type="text"
-            hasError={hasError("ward-name")}
-            errorMessage={errorMessage("ward-name")}
-            className="nhsuk-u-font-size-32 nhsuk-input--width-10"
-            style={{ padding: "16px!important", height: "64px" }}
+            hasError={hasError(errors, "ward-name")}
+            errorMessage={errorMessage(errors, "ward-name")}
+            className="nhsuk-input--width-10"
             onChange={(event) => setWardName(event.target.value)}
             name="ward-name"
             autoComplete="off"
             value={wardName || ""}
           />
         </FormGroup>
-
         <FormGroup>
-          <Label htmlFor="hospital-id" className="nhsuk-label--l">
-            What is the hospital name?
+          <Label htmlFor="ward-pin" className="nhsuk-label--m">
+            Edit a ward pin
           </Label>
-          <Select
-            id="hospital-id"
-            className="nhsuk-input--width-10 nhsuk-u-width-one-half"
-            prompt="Choose a hospital"
-            options={hospitals}
-            onChange={(event) => {
-              setHospitalId(event.target.value);
-            }}
-            hasError={hasError("hospital-id")}
-            errorMessage={errorMessage("hospital-id")}
-            defaultValue={hospital.id}
+          <Input
+            id="ward-pin"
+            type="password"
+            hasError={hasError(errors, "ward-pin")}
+            errorMessage={errorMessage(errors, "ward-pin")}
+            className="nhsuk-input--width-10"
+            onChange={(event) => setWardPin(event.target.value)}
+            name="ward-pin"
+            autoComplete="off"
+            value={wardPin || ""}
           />
         </FormGroup>
-
-        <Button className="nhsuk-u-margin-top-5">Edit ward</Button>
-      </form>
+        <FormGroup>
+          <Label htmlFor="ward-pin-confirmation" className="nhsuk-label--m">
+            Confirm the ward pin
+          </Label>
+          <Input
+            id="ward-pin-confirmation"
+            type="password"
+            hasError={hasError(errors, "ward-pin-confirmation")}
+            errorMessage={errorMessage(errors, "ward-pin-confirmation")}
+            className="nhsuk-input--width-10"
+            onChange={(event) => setWardPinConfirmation(event.target.value)}
+            name="ward-pin-confirmation"
+            autoComplete="off"
+            value={wardPinConfirmation || ""}
+          />
+        </FormGroup>
+        <Button data-testid="edit-ward-button" className="nhsuk-u-margin-top-5">
+          Edit ward
+        </Button>
+      </Form>
     </>
   );
 };

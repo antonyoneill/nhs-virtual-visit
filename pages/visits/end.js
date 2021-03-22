@@ -1,13 +1,15 @@
-import React from "react";
+import React, { useEffect } from "react";
 import Layout from "../../src/components/Layout";
-import ActionLinkSection from "../../src/components/ActionLinkSection";
 import ActionLink from "../../src/components/ActionLink";
 import AnchorLink from "../../src/components/AnchorLink";
 import InsetText from "../../src/components/InsetText";
 import propsWithContainer from "../../src/middleware/propsWithContainer";
-import * as Sentry from "@sentry/node";
+import { v4 as uuidv4 } from "uuid";
 
-const End = ({ wardId, callId, surveyUrl, supportUrl }) => {
+const EndOfVisit = ({ wardId, callId, correlationId }) => {
+  useEffect(() => {
+    console.log(correlationId);
+  }, []);
   return (
     <Layout title="Your virtual visit has completed" isBookService={false}>
       <div className="nhsuk-grid-row">
@@ -51,33 +53,14 @@ const End = ({ wardId, callId, surveyUrl, supportUrl }) => {
                 Your virtual visit has completed
               </h1>
 
-              <div className="nhsuk-panel__body">
-                <p className="nhsuk-u-margin-bottom-0">
-                  Thank you for using the virtual visit service.
-                </p>
-              </div>
+              <p className="nhsuk-u-margin-bottom-0">
+                Thank you for using the virtual visit service.
+              </p>
             </div>
 
             <InsetText>
               Your personal data will be removed within 24 hours.
             </InsetText>
-
-            <ActionLinkSection
-              heading="What happens next"
-              link={supportUrl}
-              linkText="Get support from this hospital"
-            />
-
-            <ActionLinkSection
-              heading="Help improve virtual visits"
-              link={surveyUrl}
-              linkText="Take a survey"
-            >
-              <p>
-                We’d welcome your feedback. Can you answer some questions about
-                your virtual visit today?
-              </p>
-            </ActionLinkSection>
           </div>
         )}
       </div>
@@ -88,34 +71,21 @@ const End = ({ wardId, callId, surveyUrl, supportUrl }) => {
 export const getServerSideProps = propsWithContainer(
   async ({ req: { headers }, container, query }) => {
     const userIsAuthenticated = container.getUserIsAuthenticated();
+    //We'll need to have the submit button be able to send a request to the events logging thing
+    //We'll then need to have it move on to another page
+    //What if we stuck another part into the workflow between the end and this page?
 
     const token = await userIsAuthenticated(headers.cookie);
-
-    const {
-      surveyUrl,
-      error: surveyUrlError,
-    } = await container.getRetrieveSurveyUrlByCallId()(query.callId);
-
-    const {
-      supportUrl,
-      error: supportUrlError,
-    } = await container.getRetrieveSupportUrlByCallId()(query.callId);
-
-    const error = surveyUrlError || supportUrlError;
-
-    if (error) {
-      Sentry.captureException(error);
-    }
+    const correlationId = `${uuidv4()}-visit-ended`;
 
     return {
       props: {
-        wardId: token?.ward || null,
+        wardId: token?.wardId || null,
         callId: query.callId,
-        surveyUrl,
-        supportUrl,
+        correlationId,
       },
     };
   }
 );
 
-export default End;
+export default EndOfVisit;

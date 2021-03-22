@@ -13,7 +13,6 @@ const determineNotificationType = (
 ) => {
   if (sideACallTime == sideBCallTime && sideAContact == sideBContact)
     return false;
-
   return sideAContact !== sideBContact
     ? NEW_NOTIFICATION
     : UPDATED_NOTIFICATION;
@@ -21,6 +20,7 @@ const determineNotificationType = (
 
 export default withContainer(
   async ({ headers, body, method }, res, { container }) => {
+    const { logger } = container;
     const respond = (status, response) => {
       res.status(status);
       response ? res.end(JSON.stringify(response)) : res.end();
@@ -48,9 +48,9 @@ export default withContainer(
 
     const { validVisit, errors } = validateVisit({
       patientName: body.patientName,
-      contactName: body.contactName,
-      contactEmail: body.contactEmail,
-      contactNumber: body.contactNumber,
+      recipientName: body.contactName,
+      recipientEmail: body.contactEmail,
+      recipientNumber: body.contactNumber,
       callTime: body.callTime,
     });
 
@@ -59,14 +59,17 @@ export default withContainer(
       return;
     }
 
-    const { scheduledCall } = await container.getRetrieveVisitById()(body.id);
+    const { visit: scheduledCall } = await container.getRetrieveVisitById()({
+      id: body.id,
+      departmentId: userIsAuthenticatedResponse.wardId,
+    });
     if (!scheduledCall) {
       respond(404, { err: "call does not exist" });
       return;
     }
 
     const updatedCall = {
-      id: body.id,
+      callId: body.id,
       patientName: body.patientName,
       recipientName: body.contactName,
       recipientEmail: body.contactEmail,
@@ -78,13 +81,13 @@ export default withContainer(
       await container.getUpdateVisitById()(updatedCall);
       respond(200, { success: true });
     } catch (updateError) {
-      console.log(updateError);
+      logger.error(`Error updating visit`, updateError);
       respond(500, { err: "Failed to update visit" });
       return;
     }
 
     try {
-      const { ward } = await container.getRetrieveWardById()(
+      const { ward } = await container.getRetrieveDepartmentById()(
         userIsAuthenticatedResponse.wardId,
         userIsAuthenticatedResponse.trustId
       );
@@ -92,7 +95,7 @@ export default withContainer(
       const sendNotification = async (type) => {
         const notificationType = determineNotificationType(
           updatedCall.callTime,
-          scheduledCall.callTime,
+          scheduledCall.callTime.toISOString(),
           type == "email"
             ? updatedCall.recipientEmail
             : updatedCall.recipientNumber,
@@ -100,7 +103,12 @@ export default withContainer(
             ? scheduledCall.recipientEmail
             : scheduledCall.recipientNumber
         );
-        if (!notificationType) return;
+
+        if (!notificationType)
+          return {
+            success: true,
+            errors: null,
+          };
 
         const sendBookingNotification = container.getSendBookingNotification();
         return await sendBookingNotification({
@@ -135,7 +143,7 @@ export default withContainer(
         }
       }
     } catch (notificationError) {
-      console.log(notificationError);
+      logger.error(`Error sending booking notifications`, notificationError);
       respond(500, { err: "Failed to send notification" });
       return;
     }

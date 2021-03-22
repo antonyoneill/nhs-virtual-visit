@@ -1,5 +1,6 @@
 import React from "react";
 import AnchorLink from "../AnchorLink";
+import toLowerSnake from "../../helpers/toLowerSnake";
 
 const HospitalsTable = ({ hospitals }) => (
   <div className="nhsuk-table-responsive">
@@ -11,16 +12,13 @@ const HospitalsTable = ({ hospitals }) => (
             Name
           </th>
           <th className="nhsuk-table__header" scope="col">
+            Code
+          </th>
+          <th className="nhsuk-table__header" scope="col">
             Number of wards
           </th>
           <th className="nhsuk-table__header" scope="col">
             Booked visits
-          </th>
-          <th className="nhsuk-table__header" scope="col">
-            Survey URL
-          </th>
-          <th className="nhsuk-table__header" scope="col">
-            Support URL
           </th>
           <th className="nhsuk-table__header" scope="col" colSpan="2">
             <span className="nhsuk-u-visually-hidden">Actions</span>
@@ -29,38 +27,16 @@ const HospitalsTable = ({ hospitals }) => (
       </thead>
       <tbody className="nhsuk-table__body">
         {hospitals.map((hospital) => (
-          <tr key={hospital.name} className="nhsuk-table__row">
+          <tr key={hospital.uuid} className="nhsuk-table__row">
             <td className="nhsuk-table__cell">{hospital.name}</td>
-            <td className="nhsuk-table__cell">{hospital.wards.length}</td>
+            <td className="nhsuk-table__cell">{hospital.code}</td>
+            <td className="nhsuk-table__cell">{hospital.departments.length}</td>
             <td className="nhsuk-table__cell">{hospital.bookedVisits}</td>
             <td className="nhsuk-table__cell">
-              {hospital.surveyUrl ? (
-                <a href={hospital.surveyUrl}>
-                  Link
-                  <span className="nhsuk-u-visually-hidden">
-                    {" "}
-                    for {hospital.name} survey
-                  </span>
-                </a>
-              ) : (
-                "None"
-              )}
-            </td>
-            <td className="nhsuk-table__cell">
-              {hospital.supportUrl ? (
-                <a href={hospital.supportUrl}>
-                  Link
-                  <span className="nhsuk-u-visually-hidden">
-                    {" "}
-                    for {hospital.name} support
-                  </span>
-                </a>
-              ) : (
-                "None"
-              )}
-            </td>
-            <td className="nhsuk-table__cell">
-              <AnchorLink href={`/trust-admin/hospitals/${hospital.id}`}>
+              <AnchorLink
+                href="/trust-admin/hospitals/[hospitalUuid]"
+                as={`/trust-admin/hospitals/${hospital.uuid}`}
+              >
                 View
                 <span className="nhsuk-u-visually-hidden">
                   {" "}
@@ -69,7 +45,11 @@ const HospitalsTable = ({ hospitals }) => (
               </AnchorLink>
             </td>
             <td className="nhsuk-table__cell">
-              <AnchorLink href={`/trust-admin/hospitals/${hospital.id}/edit`}>
+              <AnchorLink
+                href="/trust-admin/hospitals/[hospitalUuid]/edit-hospital"
+                as={`/trust-admin/hospitals/${hospital.uuid}/edit-hospital`}
+                data-testid={`edit-${toLowerSnake(hospital.name)}`}
+              >
                 Edit
                 <span className="nhsuk-u-visually-hidden">
                   {" "}

@@ -1,16 +1,18 @@
-import React, { useCallback } from "react";
+import React from "react";
 import Button from "../../src/components/Button";
 import { GridRow, GridColumn } from "../../src/components/Grid";
 import Text from "../../src/components/Text";
 import Heading from "../../src/components/Heading";
 import Layout from "../../src/components/Layout";
-import fetch from "isomorphic-unfetch";
+import Form from "../../src/components/Form";
 import moment from "moment";
 import Router from "next/router";
 import verifyToken from "../../src/usecases/verifyToken";
 import VisitSummaryList from "../../src/components/VisitSummaryList";
 import propsWithContainer from "../../src/middleware/propsWithContainer";
 import { WARD_STAFF } from "../../src/helpers/userTypes";
+import { v4 as uuidv4 } from "uuid";
+import fetchEndpointWithCorrelationId from "../../src/helpers/fetchEndpointWithCorrelationId";
 
 const ScheduleConfirmation = ({
   patientName,
@@ -18,6 +20,7 @@ const ScheduleConfirmation = ({
   contactNumber,
   contactEmail,
   callTime,
+  correlationId,
 }) => {
   const changeLink = () => {
     Router.push({
@@ -25,15 +28,13 @@ const ScheduleConfirmation = ({
       query: {
         patientName,
         contactName,
-        contactNumber,
-        contactEmail,
+        contactNumber: contactNumber || "",
+        contactEmail: contactEmail || "",
         ...callTime,
       },
     });
   };
-  const onSubmit = useCallback(async (event) => {
-    event.preventDefault();
-
+  const onSubmit = async () => {
     const submitAnswers = async () => {
       let body = {
         patientName,
@@ -48,32 +49,34 @@ const ScheduleConfirmation = ({
       if (contactEmail) {
         body.contactEmail = contactEmail;
       }
+      body = JSON.stringify(body);
 
-      const response = await fetch("/api/book-a-visit", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-
+      let response = await fetchEndpointWithCorrelationId(
+        "POST",
+        "/api/book-a-visit",
+        body,
+        correlationId
+      );
       const { success, err } = await response.json();
 
       if (success) {
         Router.push(`/wards/book-a-visit-success`);
+        return true;
       } else {
         console.error(err);
       }
+
+      return false;
     };
 
-    submitAnswers({
+    return submitAnswers({
       contactNumber,
       contactName,
       patientName,
       callTime,
       contactEmail,
     });
-  });
+  };
 
   return (
     <Layout
@@ -83,7 +86,7 @@ const ScheduleConfirmation = ({
     >
       <GridRow>
         <GridColumn width="two-thirds">
-          <form onSubmit={onSubmit}>
+          <Form onSubmit={onSubmit}>
             <Heading>Check your answers before booking a virtual visit</Heading>
 
             <VisitSummaryList
@@ -96,16 +99,20 @@ const ScheduleConfirmation = ({
               actionLinkOnClick={changeLink}
             ></VisitSummaryList>
 
-            <h2 className="nhsuk-heading-l">
-              Key contact&apos;s mobile number
-            </h2>
+            <h2 className="nhsuk-heading-l">Key contact&apos;s information</h2>
             <Text>
-              Please double check the mobile number of the key contact to ensure
-              we set up the virtual visit with the correct person. A text
-              message will be sent to them once you&apos;ve booked the visit.
+              Please double check the contact information of the key contact to
+              ensure we set up the virtual visit with the correct person. A
+              confirmation will be sent to them once you&apos;ve booked the
+              visit.
             </Text>
-            <Button className="nhsuk-u-margin-top-5">Book virtual visit</Button>
-          </form>
+            <Button
+              data-testid="book-virtual-visit"
+              className="nhsuk-u-margin-top-5"
+            >
+              Book virtual visit
+            </Button>
+          </Form>
         </GridColumn>
       </GridRow>
     </Layout>
@@ -127,6 +134,8 @@ export const getServerSideProps = propsWithContainer(
     } = query;
     const callTime = { day, month, year, hour, minute };
 
+    const correlationId = `${uuidv4()}-visit-booked`;
+
     return {
       props: {
         patientName,
@@ -134,6 +143,7 @@ export const getServerSideProps = propsWithContainer(
         contactNumber: contactNumber || null,
         contactEmail: contactEmail || null,
         callTime,
+        correlationId,
       },
     };
   })

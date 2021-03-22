@@ -1,16 +1,24 @@
 import React from "react";
+import { GridRow, GridColumn } from "../src/components/Grid";
+import Heading from "../src/components/Heading";
+import Layout from "../src/components/Layout";
+import AnchorLink from "../src/components/AnchorLink";
 
-function LoginRedirect() {
-  return <div></div>;
-}
+const LandingPage = () => {
+  return (
+    <Layout title="NHS Virtual Visit">
+      <GridRow>
+        <GridColumn width="two-thirds">
+          <Heading>NHS Virtual Visit</Heading>
+          <p>Use this service to:</p>
+          <ul>
+            <li data-cy="admin-and-manager-login-link"><AnchorLink href="/login"> Manage Your Trust</AnchorLink></li>
+            <li data-cy="ward-book-a-visit-link"><AnchorLink href="/wards/login">Book a Virtual Visit</AnchorLink></li>
+          </ul>
+        </GridColumn>
+      </GridRow>
+    </Layout>
+  );
+};
 
-export function getServerSideProps({ res }) {
-  res.writeHead(301, {
-    Location: "/wards/login",
-  });
-  res.end();
-
-  return { props: {} };
-}
-
-export default LoginRedirect;
+export default LandingPage;

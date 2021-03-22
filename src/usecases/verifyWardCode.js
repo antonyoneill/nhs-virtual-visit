@@ -1,25 +1,19 @@
-const verifyWardCode = ({ getDb }) => async (wardCode) => {
-  const db = await getDb();
-
+const verifyWardCode = ({ getFindWardByCodeGateway, logger }) => async (wardCode) => {
+  const findWardByCodeGateway = await getFindWardByCodeGateway();
   try {
-    const dbResponse = await db.any(
-      `SELECT id, code, trust_id FROM wards WHERE code = $1 LIMIT 1`,
-      [wardCode]
-    );
+    const ward = await findWardByCodeGateway(wardCode);
 
-    if (dbResponse.length > 0) {
-      let [ward] = dbResponse;
-
+    if (ward) {
       return {
         validWardCode: true,
-        ward: { id: ward.id, code: ward.code, trustId: ward.trust_id },
+        ward: { id: ward.wardId, code: ward.wardCode, trustId: ward.trustId },
         error: null,
       };
     } else {
       return { validWardCode: false, error: null };
     }
   } catch (error) {
-    console.log(error);
+    logger.error(JSON.stringify(error));
 
     return {
       validWardCode: false,

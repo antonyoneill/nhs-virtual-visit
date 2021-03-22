@@ -1,16 +1,13 @@
 import withContainer from "../../src/middleware/withContainer";
 import isGuid from "../../src/helpers/isGuid";
 import { JOIN_VISIT, LEAVE_VISIT } from "../../src/helpers/eventActions";
+import validateHttpMethod from "../../src/helpers/apiErrorHandler";
 
 const actions = [JOIN_VISIT, LEAVE_VISIT];
 
 export default withContainer(
   async ({ headers, body, method }, res, { container }) => {
-    if (method !== "POST") {
-      res.status(405);
-      res.end(JSON.stringify({ err: "method not allowed" }));
-      return;
-    }
+    validateHttpMethod("POST", method, res);
 
     const userIsAuthenticated = container.getUserIsAuthenticated();
     const userIsAuthenticatedResponse = await userIsAuthenticated(
@@ -41,9 +38,9 @@ export default withContainer(
       return;
     }
 
-    if (!body.sessionId || !isGuid(body.sessionId)) {
+    if (!body.callSessionId || !isGuid(body.callSessionId)) {
       res.status(400);
-      res.end(JSON.stringify({ err: "sessionId must be present" }));
+      res.end(JSON.stringify({ err: "callSessionId must be present" }));
       return;
     }
 
@@ -54,7 +51,7 @@ export default withContainer(
     const { eventId, error } = await captureEvent({
       action: body.action,
       visitId: body.visitId,
-      sessionId: body.sessionId,
+      callSessionId: body.callSessionId,
     });
 
     if (error) {

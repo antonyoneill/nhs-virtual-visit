@@ -1,20 +1,29 @@
+import { 
+  WhenIVisitTheLandingPage,
+  ThenISeeTheLandingPage, 
+} from "../commonSteps";
+
 describe("As a ward staff, I want to log in so that I can access the service.", () => {
   before(() => {
     // reset and seed the database
     cy.exec(
-      "npm run dbmigratetest reset && npm run dbmigratetest up && npm run db:seed"
+      "npm run dbmigratetest reset:mssql && npm run dbmigratetest up:mssql"
     );
   });
 
   it("allows a ward staff to log in and out", () => {
     GivenIAmAWardStaff();
-    WhenIVisitTheLogInPage();
-    AndIEnterAValidWardCode();
+    WhenIVisitTheLandingPage();
+    AndIClickTheLinkToBookAVisitLoginPage();
+    ThenISeeTheWardStaffLogInPage();
+
+    WhenIEnterAValidWardCodeAndPin();
     AndISubmitTheForm();
     ThenISeeTheWardHomePage();
 
     WhenIClickLogOut();
-    ThenISeeTheWardStaffLogInPage();
+    ThenISeeTheLandingPage();
+    cy.audit();
   });
 
   it("displays an error for an invalid code", () => {
@@ -23,16 +32,19 @@ describe("As a ward staff, I want to log in so that I can access the service.", 
     AndISubmitTheForm();
     ThenISeeAnError();
   });
+  it("displays an error if an invalid pin is entered", () => {
+    WhenIVisitTheLogInPage();
+    AndIEnterAnInvalidPin();
+    AndISubmitTheForm();
+    ThenISeeAnError();
+  });
 
   // Allows a ward staff to log in and out
   function GivenIAmAWardStaff() {}
 
-  function WhenIVisitTheLogInPage() {
-    cy.visit(Cypress.env("baseUrl"));
-  }
-
-  function AndIEnterAValidWardCode() {
-    cy.get("input").type(Cypress.env("validWard"));
+  function WhenIEnterAValidWardCodeAndPin() {
+    cy.get("input[name=code]").type(Cypress.env("validWardCode"));
+    cy.get("input[name=pin]").type(Cypress.env("validWardPin"));
   }
 
   function AndISubmitTheForm() {
@@ -40,9 +52,7 @@ describe("As a ward staff, I want to log in so that I can access the service.", 
   }
 
   function ThenISeeTheWardHomePage() {
-    cy.contains("The code you entered was not recognised").should(
-      "not.be.visible"
-    );
+    cy.contains("The code you entered was not recognised").should("not.exist");
     cy.get("h1").should("contain", "Virtual visits");
   }
 
@@ -53,14 +63,26 @@ describe("As a ward staff, I want to log in so that I can access the service.", 
   function ThenISeeTheWardStaffLogInPage() {
     cy.get("h1").should("contain", "Log in to book a virtual visit");
   }
-
+  function WhenIVisitTheLogInPage() {
+    cy.visit(Cypress.env("baseUrl") + "/wards/login");
+  }
   // Displays an error for an invalid code
   function AndIEnterAnInvalidCode() {
-    cy.get("input").type(Cypress.env("fakeWard"));
+    cy.get("input[name=code]").type(Cypress.env("fakeWard"));
+    cy.get("input[name=pin]").type(Cypress.env("validWardPin"));
+  }
+
+  function AndIEnterAnInvalidPin() {
+    cy.get("input[name=code]").type(Cypress.env("validWardPin"));
+    cy.get("input[name=pin]").type("invalid pin");
+  }
+
+  function AndIClickTheLinkToBookAVisitLoginPage(){
+    cy.get('[data-cy=ward-book-a-visit-link] > .nhsuk-link').click();
   }
 
   function ThenISeeAnError() {
-    cy.contains("There is a problem").should("be.visible");
-    cy.contains("The code you entered was not recognised").should("be.visible");
+    cy.get('[data-cy=error-summary]').should("contain", "There is a problem");
+    cy.get('[data-cy=error-description]').should("contain", "The code or pin you entered was not recognised");
   }
 });

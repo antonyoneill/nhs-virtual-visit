@@ -1,40 +1,57 @@
+import { thenIClickLogOut, ThenISeeAnError } from "../commonSteps";
+
+import {
+  GivenIAmLoggedInAsAnAdmin,
+  ThenISeeTheSiteAdministrationPage,
+  WhenIClickToReturnToSiteAdministration,
+} from "./adminCommonSteps";
+
 describe("As an admin, I want to add a trust so that a trust can use the virtual visits service.", () => {
   before(() => {
     // reset and seed the database
     cy.exec(
-      "npm run dbmigratetest reset && npm run dbmigratetest up && npm run db:seed"
+      "npm run dbmigratetest reset:mssql && npm run dbmigratetest up:mssql"
     );
   });
 
   it("allows an admin to add a trust", () => {
     GivenIAmLoggedInAsAnAdmin();
+    WhenIClickOnViewAllTrusts();
+    ThenISeeAListOfTrusts();
     WhenIClickOnAddATrust();
     ThenISeeTheAddATrustForm();
+
+    cy.audit();
 
     WhenIFillOutTheForm();
     AndISubmitTheForm();
     ThenISeeTheTrustIsAdded();
 
+    cy.audit();
+
     WhenIClickToReturnToSiteAdministration();
     ThenISeeTheSiteAdministrationPage();
+    WhenIClickOnViewAllTrusts();
     AndISeeTheAddedTrust();
+
+    thenIClickLogOut();
   });
 
   it("displays errors when fields have been left blank", () => {
     GivenIAmLoggedInAsAnAdmin();
+    WhenIClickOnViewAllTrusts();
+    ThenISeeAListOfTrusts();
     WhenIClickOnAddATrust();
     ThenISeeTheAddATrustForm();
 
     WhenISubmitFormWithoutFillingAnythingOut();
-    ThenISeeErrors();
+    ThenISeeAnError();
+
+    thenIClickLogOut();
   });
 
-  // Allows an admin to add a trust
-  function GivenIAmLoggedInAsAnAdmin() {
-    cy.visit(Cypress.env("baseUrl") + "/admin/login");
-    cy.get("input[name=code]").type(Cypress.env("validAdminCode"));
-    cy.get("input[name=password]").type(Cypress.env("validAdminPassword"));
-    cy.get("button").contains("Log in").click();
+  function WhenIClickOnViewAllTrusts() {
+    cy.get("a.nhsuk-action-link__link").contains("View all trusts").click();
   }
 
   function WhenIClickOnAddATrust() {
@@ -46,11 +63,7 @@ describe("As an admin, I want to add a trust so that a trust can use the virtual
   }
 
   function WhenIFillOutTheForm() {
-    cy.get("input[name=trust-name]").type("Bow Trust");
-    cy.get("select[name=video-provider]").select("whereby");
-    cy.get("input[name=trust-admin-code]").type("bowcode");
-    cy.get("input[name=trust-password]").type("bowpassword");
-    cy.get("input[name=trust-password-confirmation]").type("bowpassword");
+    cy.get("input[name=trust-name]").type("AAA Trust");
   }
 
   function AndISubmitTheForm() {
@@ -58,27 +71,19 @@ describe("As an admin, I want to add a trust so that a trust can use the virtual
   }
 
   function ThenISeeTheTrustIsAdded() {
-    cy.get("h1").should("contain", "Bow Trust has been added");
+    cy.get("h1").should("contain", "AAA Trust has been added");
   }
 
-  function WhenIClickToReturnToSiteAdministration() {
-    cy.get("a").contains("Return to site administration").click();
-  }
-
-  function ThenISeeTheSiteAdministrationPage() {
-    cy.get("h1").should("contain", "Site administration");
+  function ThenISeeAListOfTrusts() {
+    cy.get("h1").should("contain", "List of all trusts");
   }
 
   function AndISeeTheAddedTrust() {
-    cy.get("td").should("contain", "Bow Trust");
+    cy.get("td").should("contain", "AAA Trust");
   }
 
   // Displays errors when fields have been left blank
   function WhenISubmitFormWithoutFillingAnythingOut() {
     cy.get("button").contains("Add trust").click();
-  }
-
-  function ThenISeeErrors() {
-    cy.contains("There is a problem").should("be.visible");
   }
 });

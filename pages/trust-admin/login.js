@@ -1,5 +1,4 @@
-import React, { useCallback, useState } from "react";
-import fetch from "isomorphic-unfetch";
+import React, { useRef, useState } from "react";
 import Button from "../../src/components/Button";
 import ErrorSummary from "../../src/components/ErrorSummary";
 import FormGroup from "../../src/components/FormGroup";
@@ -9,23 +8,22 @@ import Input from "../../src/components/Input";
 import Label from "../../src/components/Label";
 import Layout from "../../src/components/Layout";
 import propsWithContainer from "../../src/middleware/propsWithContainer";
+import Form from "../../src/components/Form";
+import { v4 as uuidv4 } from "uuid";
+import fetchEndpointWithCorrelationId from "../../src/helpers/fetchEndpointWithCorrelationId";
+import { hasError, errorMessage } from "../../src/helpers/pageErrorHandler";
 
-const Login = () => {
-  const [code, setCode] = useState("");
-  const [password, setPassword] = useState("");
+const Login = ({ correlationId }) => {
   const [errors, setErrors] = useState([]);
 
-  const hasError = (field) =>
-    errors.find((error) => error.id === `${field}-error`);
+  const codeRef = useRef();
+  const passwordRef = useRef();
 
-  const errorMessage = (field) => {
-    const error = errors.filter((err) => err.id === `${field}-error`);
-    return error.length === 1 ? error[0].message : "";
-  };
-
-  const onSubmit = useCallback(async (event) => {
-    event.preventDefault();
+  const onSubmit = async () => {
     const onSubmitErrors = [];
+
+    const code = codeRef.current.value;
+    const password = passwordRef.current.value;
 
     if (!code) {
       onSubmitErrors.push({
@@ -42,25 +40,28 @@ const Login = () => {
     }
 
     if (onSubmitErrors.length === 0) {
-      const response = await fetch("/api/session", {
-        method: "POST",
-        body: JSON.stringify({ code, password }),
-        headers: {
-          "content-type": "application/json",
-        },
-      });
+      const body = JSON.stringify({ code, password });
+      const response = await fetchEndpointWithCorrelationId(
+        "POST",
+        "/api/session",
+        body,
+        correlationId
+      );
 
       if (response.status === 201) {
         window.location.href = `/trust-admin`;
+        return true;
       } else {
         onSubmitErrors.push({
+          id: "code-or-password-error",
           message: "The code or password you entered was not recognised",
         });
       }
     }
 
     setErrors(onSubmitErrors);
-  });
+    return false;
+  };
 
   return (
     <Layout title="Log in to manage your trust" hasErrors={errors.length > 0}>
@@ -69,16 +70,16 @@ const Login = () => {
           <ErrorSummary errors={errors} />
           <Heading>Log in to manage your trust</Heading>
 
-          <form onSubmit={onSubmit}>
+          <Form onSubmit={onSubmit}>
             <FormGroup>
               <Label htmlFor="code">Trust code</Label>
               <Input
                 id="code"
                 type="text"
-                hasError={hasError("code")}
-                errorMessage={errorMessage("code")}
+                ref={codeRef}
+                hasError={hasError(errors, "code")}
+                errorMessage={errorMessage(errors, "code")}
                 className="nhsuk-input--width-10"
-                onChange={(event) => setCode(event.target.value)}
                 name="code"
               />
             </FormGroup>
@@ -87,10 +88,10 @@ const Login = () => {
               <Input
                 id="password"
                 type="password"
-                hasError={hasError("password")}
-                errorMessage={errorMessage("password")}
+                ref={passwordRef}
+                hasError={hasError(errors, "password")}
+                errorMessage={errorMessage(errors, "password")}
                 className="nhsuk-input--width-10"
-                onChange={(event) => setPassword(event.target.value)}
                 name="password"
                 autoComplete="off"
               />
@@ -99,7 +100,7 @@ const Login = () => {
             <Button className="nhsuk-u-margin-top-5" type="submit">
               Log in
             </Button>
-          </form>
+          </Form>
         </GridColumn>
         <span style={{ clear: "both", display: "block" }}></span>
       </GridRow>
@@ -114,11 +115,13 @@ export const getServerSideProps = propsWithContainer(
     const userIsAuthenticated = container.getUserIsAuthenticated();
     const userToken = await userIsAuthenticated(headers.cookie);
 
-    const trustAdminIsAuthenticated = container.getTrustAdminIsAuthenticated();
+    const trustAdminIsAuthenticated = container.getOrganisationAdminIsAuthenticated();
     const trustAdminToken = trustAdminIsAuthenticated(headers.cookie);
 
     const adminIsAuthenticated = container.getAdminIsAuthenticated();
     const adminToken = adminIsAuthenticated(headers.cookie);
+
+    const correlationId = `trust-admin-login-${uuidv4()}`;
 
     if (trustAdminToken) {
       res.writeHead(307, { Location: `/trust-admin` }).end();
@@ -128,6 +131,6 @@ export const getServerSideProps = propsWithContainer(
       res.writeHead(307, { Location: `/admin` }).end();
     }
 
-    return { props: {} };
+    return { props: { correlationId } };
   }
 );

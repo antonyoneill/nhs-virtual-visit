@@ -1,7 +1,5 @@
 import CallIdProvider from "./CallIdProvider";
-import JitsiCallIdProvider from "./callIdProviders/JitsiCallIdProvider";
 import WherebyCallIdProvider from "./callIdProviders/WherebyCallIdProvider";
-jest.mock("./callIdProviders/JitsiCallIdProvider");
 jest.mock("./callIdProviders/WherebyCallIdProvider");
 
 describe("CallIdProvider", () => {
@@ -12,18 +10,12 @@ describe("CallIdProvider", () => {
     expect(WherebyCallIdProvider).toHaveBeenCalledWith(callTime);
   });
 
-  it("returns a call ID for jitsi", async () => {
-    const prov = new CallIdProvider("jitsi");
-    prov.generate();
-    expect(JitsiCallIdProvider).toHaveBeenCalledWith();
-  });
-
-  it("throws an error if the video provider is not supported", async () => {
+  it("throws an error if the video provider is ", async () => {
     const prov = new CallIdProvider("notsupported");
     try {
       await prov.generate();
     } catch (e) {
-      expect(e).toEqual("Provider notsupported not supported");
+      expect(e).toEqual("Provider notsupported ");
     }
   });
 });

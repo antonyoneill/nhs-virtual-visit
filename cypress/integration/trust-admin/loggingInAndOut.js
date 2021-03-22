@@ -1,25 +1,35 @@
+import { 
+  WhenIVisitTheLandingPage,
+  ThenISeeTheManageYourTrustLoginPage,
+  ThenISeeTheLandingPage,
+  AndIClickTheLinkToManageYourTrustPage
+} from "../commonSteps";
 describe("As a trust admin, I want to log in so that I can access the service.", () => {
   before(() => {
     // reset and seed the database
     cy.exec(
-      "npm run dbmigratetest reset && npm run dbmigratetest up && npm run db:seed"
+      "npm run dbmigratetest reset:mssql && npm run dbmigratetest up:mssql"
     );
   });
 
   it("allows a trust admin to log in and out", () => {
     GivenIAmATrustAdmin();
-    WhenIVisitTheTrustAdminLogInPage();
-    AndIEnterAValidTrustAdminCodeAndPassword();
+    WhenIVisitTheLandingPage();
+    AndIClickTheLinkToManageYourTrustPage();
+    ThenISeeTheManageYourTrustLoginPage();
+
+    WhenIEnterAValidTrustAdminEmailAndPassword();
     AndISubmitTheForm();
     ThenISeeTheTrustAdminHomePage();
+    cy.audit();
 
     WhenIClickLogOut();
-    ThenISeeTheTrustAdminLogInPage();
+    ThenISeeTheLandingPage();
   });
 
-  it("displays an error for an invalid code", () => {
+  it("displays an error for an invalid email", () => {
     WhenIVisitTheTrustAdminLogInPage();
-    AndIEnterAnInvalidCode();
+    AndIEnterAnInvalidEmail();
     AndISubmitTheForm();
     ThenISeeAnError();
   });
@@ -32,7 +42,7 @@ describe("As a trust admin, I want to log in so that I can access the service.",
   });
 
   function WhenIVisitTheTrustAdminLogInPage() {
-    cy.visit(Cypress.env("baseUrl") + "/trust-admin/login");
+    cy.visit(Cypress.env("baseUrl") + "/login");
   }
 
   function AndISubmitTheForm() {
@@ -42,41 +52,33 @@ describe("As a trust admin, I want to log in so that I can access the service.",
   // Allows a trust admin to log in and out
   function GivenIAmATrustAdmin() {}
 
-  function AndIEnterAValidTrustAdminCodeAndPassword() {
-    cy.get("input[name=code]").type(Cypress.env("validTrustAdminCode"));
-    cy.get("input[name=password]").type(Cypress.env("validTrustAdminPassword"));
+  function WhenIEnterAValidTrustAdminEmailAndPassword() {
+    cy.get("input[name=email]").type(Cypress.env("validTrustManagerEmail"));
+    cy.get("input[name=password]").type(
+      Cypress.env("validTrustManagerPassword")
+    );
   }
-
   function ThenISeeTheTrustAdminHomePage() {
-    cy.contains("There is a problem").should("not.be.visible");
-    cy.contains("Test Trust").should("be.visible");
-    cy.contains("Dashboard").should("be.visible");
+    cy.get('[data-cy=trust-name]').should("contain", "Airedale NHS Foundation Trust");
+    cy.get('[data-cy=layout-title]').should("contain", "Dashboard");
   }
-
   function WhenIClickLogOut() {
     cy.get("a.nhsuk-header__navigation-link").contains("Log out").click();
   }
-
-  function ThenISeeTheTrustAdminLogInPage() {
-    cy.get("h1").should("contain", "Log in to manage your trust");
-  }
-
   // Displays an error for an invalid code
-  function AndIEnterAnInvalidCode() {
-    cy.get("input[name=code]").type("wrong");
-    cy.get("input[name=password]").type(Cypress.env("validTrustAdminPassword"));
+  function AndIEnterAnInvalidEmail() {
+    cy.get("input[name=email]").type("wrong@email.com");
+    cy.get("input[name=password]").type(
+      Cypress.env("validTrustManagerPassword")
+    );
   }
-
-  // Displays an error for an invalid code
+  // Displays an error for an invalid password
   function AndIEnterAnInvalidPassword() {
-    cy.get("input[name=code]").type(Cypress.env("validTrustAdminCode"));
+    cy.get("input[name=email]").type(Cypress.env("validTrustManagerEmail"));
     cy.get("input[name=password]").type("wrong");
   }
-
   function ThenISeeAnError() {
-    cy.contains("There is a problem").should("be.visible");
-    cy.contains("The code or password you entered was not recognised").should(
-      "be.visible"
-    );
+    cy.get('[data-cy=error-summary]').should("contain", "There is a problem");
+    cy.get('[data-cy=error-description]').should("contain", "The email or password you entered was not recognised");
   }
 });

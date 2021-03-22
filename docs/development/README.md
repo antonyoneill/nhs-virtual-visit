@@ -1,10 +1,17 @@
 # Development
 
-Requirements:
+## Architecture Diagrams
 
-- PostgreSQL 12
+![virtual visits manually managed cloud architecture diagram](./vv-cloud-architecture.png "Virtual Visits Azure Cloud Architecture Diagram")
+
+## Requirements:
+
+- MSSQL
 - Node LTS (Currently Node 12. There is a known issue with db-migrate and Node 14)
-- GovNotify API keys
+- GOV.UK Notify API keys
+- Docker
+
+_NOTE_ Use `nvm install` to automatically set node version.
 
 ## Environment Setup
 
@@ -13,26 +20,44 @@ Requirements:
 In order to run this app locally you will need to create a `.env` file in the root of this project and add these variables to it.
 
 ```bash
-# GovNotify API Key
-API_KEY=
-# Postgres Connection String
-DATABASE_URL=
-# Postgres Connection String for the test database
-TEST_DATABASE_URL=
-# GovNotify SMS Initial Template ID
+# GOV.UK Notify API Key
+GOVNOTIFY_API_KEY=
+# MSSQL
+MSQL_DB_DRIVER=
+MSQL_DB_PORT=
+MSQL_DB_POOL_MAX=
+MSQL_DB_POOL_MIN=
+MSQL_DB_POOL_IDLE_TIMEOUT=
+# Local / Development DB
+MSQL_DB_USER=
+MSQL_DB_PASSWORD=
+MSQL_DB_SERVER=
+MSQL_DB_NAME=
+# Test DB
+MSQL_TEST_DB_USER=
+MSQL_TEST_DB_PASSWORD=
+MSQL_TEST_DB_SERVER=
+MSQL_TEST_DB_NAME=
+# External links
+ORIGIN=
+# GOV.UK Notify SMS Initial Template ID
 SMS_INITIAL_TEMPLATE_ID=
-# GovNotify SMS Updated Visit Template ID
+# GOV.UK Notify SMS Updated Visit Template ID
 SMS_UPDATED_VISIT_TEMPLATE_ID=
-# GovNotify SMS Join Template ID
+# GOV.UK Notify SMS Join Template ID
 SMS_JOIN_TEMPLATE_ID=
-# GovNotify Email Initial Template ID
+# GOV.UK Notify Email Initial Template ID
 EMAIL_INITIAL_TEMPLATE_ID=
-# GovNotify Email Updated Visit Template ID
+# GOV.UK Notify Email Updated Visit Template ID
 EMAIL_UPDATED_VISIT_TEMPLATE_ID=
-# GovNotify Email Join Template ID
+# GOV.UK Notify Email Join Template ID
 EMAIL_JOIN_TEMPLATE_ID=
-# Valid Ward Codes
-ALLOWED_CODES=
+# GOV.UK Notify Email RESET PASSWORD Template ID
+EMAIL_RESET_PASSWORD_TEMPLATE_ID=
+# GOV.UK Notify Email MANAGER SIGN UP Template ID
+EMAIL_SIGN_UP_TEMPLATE_ID=
+# GOV.UK Notify Email AUTHORISE MANAGER ACCOUNT Template ID
+EMAIL_SIGN_UP_REQUEST_TEMPLATE_ID=
 # Signing key for JWT tokens
 JWT_SIGNING_KEY=
 # Whereby API Credentials
@@ -44,43 +69,33 @@ SENTRY_ORG=
 SENTRY_PROJECT=
 SENTRY_AUTH_TOKEN=
 ENABLE_SENTRY=
+# EMAIL DOMAINS ALLOWED
+SIGN_UP_EMAIL_DOMAINS=
 ```
 
-### PostgreSQL 12
+### MSSQL
 
 #### Setup the database with docker
 
-Run `docker-compose up -d` to create the container.
+Set in your `.env` file the following properties.
 
-Add `DATABASE_URL=postgresql://postgres:postgres@localhost/nhs-virtual-visit-dev` to your `.env` file.
+```bash
+MSQL_DB_DRIVER=mssql
+MSQL_DB_PORT=1433
+MSQL_DB_POOL_MAX=15
+MSQL_DB_POOL_MIN=5
+MSQL_DB_POOL_IDLE_TIMEOUT=30000
+MSQL_DB_USER=sa
+MSQL_DB_PASSWORD=P@55w0rd
+MSQL_DB_SERVER=localhost
+MSQL_DB_NAME=nhs_virtual_visit_dev
+```
 
-Run `./bin/setup_dev_db_docker.sh`
+Run `./bin/setup_local_mssql_docker.sh`
 
 Notes:
-
-- You may have to run this as root (using `sudo`) under Linux.
-- If you omit the `--no-start` flag it'll start the container in an interactive shell, which will kill the container when you exit.
-- You may stop the container with `docker-compose stop`.
-- You may start the container again with `docker-compose start`.
-- You may destroy the container with `docker-compose down`.
-
-#### Setup the database installed locally
-
-If you are installing a local instance of PostgreSQL on Ubuntu, see the steps in the separate [guide.](./UBUNTU2004-PG12.md)
-
-1. Add the database URL as an environment variable in `.env`. On Linux you may need to provide a username and password.
-   ```bash
-   cat <<<EOF >> .env
-   DATABASE_URL=postgresql://localhost/nhs-virtual-visit-dev
-   EOF
-   ```
-1. Run the database setup script
-
-   ```bash
-   ./bin/setup_dev_db.sh
-   ```
-
-   - This will setup the database with two wards with codes `TEST1` and `TEST2`
+The script will create the database and populate with an admin user and organisation data.
+Check docker memory allocation, port 1433 isn't used, wait time can be increased to check if the problem is mssql having no time to startup.
 
 ## Running the service locally
 
@@ -107,11 +122,17 @@ Contract tests can be run with
 npm run test:contract
 ```
 
-Note: A test database is required to run contract tests. You can quickly set one up using `bin/setup_test_db.sh`
+Note: A test database is required to run contract tests.
+
+Run `./bin/setup_test_mssql_docker.sh` to set up and run the test database.
+
+Notes:
+The script will create the database and populate with an admin user and organisation data.
+Check docker memory allocation, port 1433 isn't used, wait time can be increased to check if the problem is mssql having no time to startup.
 
 ## Running end to end (E2E) tests
 
-To run E2E tests you need a test server running
+To run E2E tests you need a test server running and test database populated.
 
 ```bash
 npm run test:server
@@ -137,44 +158,30 @@ npm run build
 
 This will produce output that you can use to host a production copy of the app.
 
-## Scheduling regular database cleanup
-
-Old scheduled calls have all personal data removed after 24 hours. You can cleanup the table by running the following in a scheduled job runner of your choosing (for Heroku we use https://devcenter.heroku.com/articles/scheduler)
-
-```bash
-npm run cleandb
-```
-
 ## Applying database migrations
 
 Database migrations are managed with [db-migrate](https://github.com/db-migrate/node-db-migrate). To create a new migration
 
 ```bash
-npm run dbmigrate create description-for-your-migration
+npm run dbmigrate create:mssql description-for-your-migration
 ```
 
-This will create an up and down migration as sql files in `db/migrations/sqls` as well as a javascript file in `db/migrations` to run the sql files.
+This will create an up and down migration as sql files in `db/migrations/mssql/sqls` as well as a javascript file in `db/migrations/mssql` to run the sql files.
 
 Migrations are run with
 
 ```bash
-npm run dbmigrate up
+npm run dbmigrate up:mssql
 ```
 
 Migrations can be rolled back with
 
 ```bash
-npm run dbmigrate down
+npm run dbmigrate down:mssql
 ```
 
 You can do a dry-run to view the changes that will be applied without making any changes (for both up and down migrations)
 
 ```bash
-npm run dbmigratedry up
-```
-
-To update the `db/schema.sql` file:
-
-```bash
-pg_dump -d nhs-virtual-visit-dev -s > db/schema.sql
+npm run dbmigratedry up:mssql
 ```

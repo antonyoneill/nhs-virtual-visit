@@ -12,7 +12,10 @@ import Error from "next/error";
 const Start = ({ callId, error, callPassword }) => {
   const router = useRouter();
   const onClick = () =>
-    router.push(`/visitors/${callId}/name?callPassword=${callPassword}`);
+    router.push(
+      `/visitors/[id]/name?callPassword=${callPassword}`,
+      `/visitors/${callId}/name?callPassword=${callPassword}`
+    );
   if (error) {
     return <Error />;
   }
@@ -56,7 +59,8 @@ const Start = ({ callId, error, callPassword }) => {
 };
 
 export const getServerSideProps = propsWithContainer(
-  async ({ query, container, res }) => {
+  async ({ query, container }) => {
+    const { logger } = container;
     const { id: callId, callPassword } = query;
 
     const verifyCallPassword = container.getVerifyCallPassword();
@@ -66,13 +70,13 @@ export const getServerSideProps = propsWithContainer(
       callPassword
     );
 
-    if (!validCallPassword) {
-      res.writeHead(307, {
-        Location: "/error",
-      });
-      res.end();
+    if (error) {
+      logger.error(`Call password invalid in start.js`, error);
     }
-    console.log("start.js error", error);
+
+    if (!validCallPassword) {
+      return { props: { error: "Unauthorized" } };
+    }
 
     return { props: { callId, error, callPassword } };
   }

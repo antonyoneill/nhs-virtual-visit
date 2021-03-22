@@ -1,7 +1,13 @@
-import bcrypt from "bcryptjs";
-
-const verifyAdminCode = ({ getDb }) => async (code, password) => {
-  const db = await getDb();
+const verifyAdminCode = ({ getVerifyAdminCodeGateway }) => async (
+  email,
+  password
+) => {
+  if (!email) {
+    return {
+      validAdminCode: false,
+      error: "email is not defined",
+    };
+  }
 
   if (!password) {
     return {
@@ -10,39 +16,12 @@ const verifyAdminCode = ({ getDb }) => async (code, password) => {
     };
   }
 
-  try {
-    const dbResponse = await db.any(
-      `SELECT id, password FROM admins WHERE code = $1 LIMIT 1`,
-      [code]
-    );
+  const { validAdminCode, error } = await getVerifyAdminCodeGateway()(
+    email,
+    password
+  );
 
-    if (dbResponse.length > 0) {
-      const [admin] = dbResponse;
-
-      if (!bcrypt.compareSync(password, admin.password))
-        return {
-          validAdminCode: false,
-          error: "Incorrect trust admin code or password",
-        };
-
-      return {
-        validAdminCode: true,
-        error: null,
-      };
-    } else {
-      return {
-        validAdminCode: false,
-        error: null,
-      };
-    }
-  } catch (error) {
-    console.log(error);
-
-    return {
-      validAdminCode: false,
-      error: error.toString(),
-    };
-  }
+  return { validAdminCode, error };
 };
 
 export default verifyAdminCode;

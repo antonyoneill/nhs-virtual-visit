@@ -1,17 +1,13 @@
+import { thenIClickLogOut, ThenISeeAnError } from "../commonSteps";
+import { GivenIAmLoggedInAsATrustAdmin } from "./trustAdminCommonSteps.js";
+
 describe("As an admin, I want to edit a hospital so that I can keep hospital changes up to date.", () => {
   before(() => {
     // reset and seed the database
     cy.exec(
-      "npm run dbmigratetest reset && npm run dbmigratetest up && npm run db:seed"
+      "npm run dbmigratetest reset:mssql && npm run dbmigratetest up:mssql"
     );
   });
-
-  function GivenIAmLoggedInAsAnAdmin() {
-    cy.visit(Cypress.env("baseUrl") + "/trust-admin/login");
-    cy.get("input[name=code]").type(Cypress.env("validTrustAdminCode"));
-    cy.get("input[name=password]").type(Cypress.env("validTrustAdminPassword"));
-    cy.get("button").contains("Log in").click();
-  }
 
   function WhenIClickOnHospitals() {
     cy.get("a.nhsuk-header__navigation-link").contains("Hospitals").click();
@@ -25,41 +21,8 @@ describe("As an admin, I want to edit a hospital so that I can keep hospital cha
     cy.get("a.nhsuk-link").contains("Edit").click();
   }
 
-  function ThenIShouldBeOnTheEditHospitalPage() {
-    cy.url().should("include", "/trust-admin/hospitals/1/edit");
-    cy.get("input[name=hospital-name]").should("have.value", "Test Hospital");
-  }
-
-  function WhenIFillOutTheForm() {
-    cy.get("input[name=hospital-name]").type(" updated");
-    cy.get("input[name=hospital-survey-url]").type(
-      "https://www.survey.example.com"
-    );
-    cy.get("input[name=hospital-support-url]").type(
-      "https://www.support.example.com"
-    );
-  }
-
-  function WhenIFillOutTheFormWithBadSurveyUrl() {
-    cy.get("input[name=hospital-name]").type("Scorpia Hospital");
-    cy.get("input[name=hospital-survey-url]").type("https://www");
-  }
-
-  function WhenIFillOutTheFormWithBadSupportUrl() {
-    cy.get("input[name=hospital-name]").type("Scorpia Hospital");
-    cy.get("input[name=hospital-support-url]").type("https://www");
-  }
-
   function AndIClickTheEditHospitalButton() {
     cy.get("button[type=submit]").contains("Edit hospital").click();
-  }
-
-  function ThenIShouldBeOnTheEditSuccessPageWithNewName() {
-    cy.url().should("include", "/trust-admin/hospitals/1/edit-success");
-    cy.get("h1.nhsuk-panel__title").should(
-      "contain",
-      "Test Hospital updated has been updated"
-    );
   }
 
   function WhenISubmitFormEmptyHospitalName() {
@@ -67,58 +30,17 @@ describe("As an admin, I want to edit a hospital so that I can keep hospital cha
     AndIClickTheEditHospitalButton();
   }
 
-  function ThenISeeErrors() {
-    cy.get(".nhsuk-error-summary").should("be.visible");
-  }
-
   it("displays errors when fields have been left blank", () => {
-    GivenIAmLoggedInAsAnAdmin();
+    GivenIAmLoggedInAsATrustAdmin();
     WhenIClickOnHospitals();
     ThenISeeTheHospitalList();
 
     WhenIClickOnTheEditLink();
-    ThenIShouldBeOnTheEditHospitalPage();
+    cy.audit();
 
     WhenISubmitFormEmptyHospitalName();
-    ThenISeeErrors();
-  });
+    ThenISeeAnError();
 
-  it("displays errors when survey url is invalid", () => {
-    GivenIAmLoggedInAsAnAdmin();
-    WhenIClickOnHospitals();
-    ThenISeeTheHospitalList();
-
-    WhenIClickOnTheEditLink();
-    ThenIShouldBeOnTheEditHospitalPage();
-
-    WhenIFillOutTheFormWithBadSurveyUrl();
-    AndIClickTheEditHospitalButton();
-    ThenISeeErrors();
-  });
-
-  it("displays errors when support url is invalid", () => {
-    GivenIAmLoggedInAsAnAdmin();
-    WhenIClickOnHospitals();
-    ThenISeeTheHospitalList();
-
-    WhenIClickOnTheEditLink();
-    ThenIShouldBeOnTheEditHospitalPage();
-
-    WhenIFillOutTheFormWithBadSupportUrl();
-    AndIClickTheEditHospitalButton();
-    ThenISeeErrors();
-  });
-
-  it("allows an admin to edit a hospital", () => {
-    GivenIAmLoggedInAsAnAdmin();
-    WhenIClickOnHospitals();
-    ThenISeeTheHospitalList();
-
-    WhenIClickOnTheEditLink();
-    ThenIShouldBeOnTheEditHospitalPage();
-
-    WhenIFillOutTheForm();
-    AndIClickTheEditHospitalButton();
-    ThenIShouldBeOnTheEditSuccessPageWithNewName();
+    thenIClickLogOut();
   });
 });

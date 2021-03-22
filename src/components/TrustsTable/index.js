@@ -1,4 +1,5 @@
 import React from "react";
+import AnchorLink from "../AnchorLink";
 
 const TrustsTable = ({ trusts }) => (
   <div className="nhsuk-table-responsive">
@@ -9,14 +10,47 @@ const TrustsTable = ({ trusts }) => (
           <th className="nhsuk-table__header" scope="col">
             Trust name
           </th>
+          <th className="nhsuk-table__header" scope="col" colSpan="2">
+            <span className="nhsuk-u-visually-hidden">Actions</span>
+          </th>
+          <th className="nhsuk-table__header" scope="col" colSpan="2">
+            <span className="nhsuk-u-visually-hidden">Actions</span>
+          </th>
         </tr>
       </thead>
       <tbody className="nhsuk-table__body">
-        {trusts.map((trust) => (
-          <tr key={trust.callId} className="nhsuk-table__row">
-            <td className="nhsuk-table__cell">{trust.name}</td>
-          </tr>
-        ))}
+        {trusts.map((trust) => {
+          const trustKey = trust.name.toLowerCase().replace(/\W+/g, "-");
+
+          return (
+            <tr
+              key={trustKey}
+              className="nhsuk-table__row"
+              data-testid={trustKey}
+            >
+              <td className="nhsuk-table__cell">{trust.name}</td>
+
+              <td className="nhsuk-table__cell" style={{ textAlign: "right" }}>
+                <AnchorLink
+                  href="/admin/trusts/[id]"
+                  as={`/admin/trusts/${trust.id}`}
+                >
+                  View
+                  <span className="nhsuk-u-visually-hidden"> {trust.name}</span>
+                </AnchorLink>
+              </td>
+              <td className="nhsuk-table__cell" style={{ textAlign: "center" }}>
+                <AnchorLink
+                  href="/admin/trusts/[id]/delete"
+                  as={`/admin/trusts/${trust.id}/delete`}
+                >
+                  Delete
+                  <span className="nhsuk-u-visually-hidden"> {trust.name}</span>
+                </AnchorLink>
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   </div>

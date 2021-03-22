@@ -1,29 +1,62 @@
-import { SCHEDULED } from "../../src/helpers/visitStatus";
+import validateVisit from "../../src/helpers/validateVisit";
 
-const createVisit = ({ getDb }) => async (visit) => {
-  const db = await getDb();
+const createVisit = ({
+  getInsertVisitGateway,
+  getSendBookingNotification,
+  getRetrieveFacilityById,
+  logger
+}) => async (visit, ward, callId, callPassword, videoProvider) => {
+  const { validVisit, errors } = validateVisit(visit);
 
-  const { id, call_id } = await db.one(
-    `INSERT INTO scheduled_calls_table
-      (id, patient_name, recipient_email, recipient_number, recipient_name, call_time, call_id, provider, ward_id, call_password, status)
-      VALUES (default, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING id, call_id
-    `,
-    [
-      visit.patientName,
-      visit.contactEmail || "",
-      visit.contactNumber || "",
-      visit.contactName || "",
-      visit.callTime,
-      visit.callId,
-      visit.provider,
-      visit.wardId,
-      visit.callPassword,
-      SCHEDULED,
-    ]
-  );
+  if (!validVisit) {
+    logger.error("invalid visit on create", { visit, errors });
+    return { success: false, err: errors };
+  }
 
-  return { id, callId: call_id };
+  const populatedVisit = Object.assign({}, visit, {
+    callId,
+    callPassword,
+    provider: videoProvider,
+  });
+
+  try {
+    const { error: insertVisitError } = await getInsertVisitGateway()(
+      populatedVisit,
+      ward.id
+    );
+
+    if (insertVisitError) {
+      return { success: false, err: insertVisitError };
+    }
+
+    const {
+      facility,
+      error: retrieveFacilityError,
+    } = await getRetrieveFacilityById()(ward.facilityId);
+
+    if (retrieveFacilityError) {
+      return { success: false, err: retrieveFacilityError };
+    }
+
+    const {
+      errors: bookingNotificationErrors,
+    } = await getSendBookingNotification()({
+      mobileNumber: visit.recipientNumber,
+      emailAddress: visit.recipientEmail,
+      wardName: ward.name,
+      hospitalName: facility.name,
+      visitDateAndTime: visit.callTime,
+    });
+
+    if (bookingNotificationErrors) {
+      return { success: false, err: bookingNotificationErrors };
+    }
+
+    return { success: true, err: null };
+  } catch (err) {
+    logger.error("failed to create visit", err);
+    return { success: false, err: err };
+  }
 };
 
 export default createVisit;

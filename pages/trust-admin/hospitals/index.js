@@ -5,32 +5,26 @@ import propsWithContainer from "../../../src/middleware/propsWithContainer";
 import verifyTrustAdminToken from "../../../src/usecases/verifyTrustAdminToken";
 import HospitalsTable from "../../../src/components/HospitalsTable";
 import { GridRow, GridColumn } from "../../../src/components/Grid";
-import Heading from "../../../src/components/Heading";
+import TrustAdminHeading from "../../../src/components/TrustAdminHeading";
 import ActionLink from "../../../src/components/ActionLink";
 import Text from "../../../src/components/Text";
 import { TRUST_ADMIN } from "../../../src/helpers/userTypes";
 
-const TrustAdmin = ({ hospitals, hospitalError, trust, trustError }) => {
-  if (hospitalError || trustError) {
-    return <Error err={hospitalError || trustError} />;
+const TrustAdmin = ({ hospitals, error, organisation }) => {
+  if (error) {
+    return <Error err={error} />;
   }
 
   return (
     <Layout
-      title={`Hospitals for ${trust.name}`}
+      title={`Hospitals for ${organisation.name}`}
       showNavigationBar={true}
       showNavigationBarForType={TRUST_ADMIN}
     >
+      <TrustAdminHeading trustName={organisation.name} subHeading="Hospitals" />
       <GridRow>
         <GridColumn width="full">
-          <Heading>
-            <span className="nhsuk-caption-l">
-              {trust.name}
-              <span className="nhsuk-u-visually-hidden">-</span>
-            </span>
-            Hospitals
-          </Heading>
-          <ActionLink href={`/trust-admin/hospitals/add`}>
+          <ActionLink href={`/trust-admin/hospitals/add-hospital`}>
             Add a hospital
           </ActionLink>
           {hospitals.length > 0 ? (
@@ -46,33 +40,35 @@ const TrustAdmin = ({ hospitals, hospitalError, trust, trustError }) => {
 
 export const getServerSideProps = propsWithContainer(
   verifyTrustAdminToken(async ({ container, authenticationToken }) => {
-    const hospitalsResponse = await container.getRetrieveHospitalsByTrustId()(
-      authenticationToken.trustId,
-      { withWards: true }
-    );
-    const trustResponse = await container.getRetrieveTrustById()(
-      authenticationToken.trustId
-    );
-    const hospitalVisitTotalsResponse = await container.getRetrieveHospitalVisitTotals()(
-      authenticationToken.trustId
-    );
+    const orgId = authenticationToken.trustId;
+    const {
+      organisation,
+      error: organisationError,
+    } = await container.getRetrieveOrganisationById()(orgId);
+    const {
+      facilities,
+      error: facilitiesError,
+    } = await container.getRetrieveFacilitiesByOrgId()(orgId, {
+      withWards: true,
+    });
 
-    const hospitalsWithVisitTotals = hospitalsResponse.hospitals?.map(
-      (hospital) => {
-        hospital.bookedVisits =
-          hospitalVisitTotalsResponse.hospitals.find(
-            ({ id }) => id === hospital.id
-          )?.totalVisits || 0;
-        return hospital;
-      }
-    );
+    const {
+      facilities: hospitalVisitTotals,
+      error: hospitalsVisitTotalError,
+    } = await container.getRetrieveTotalBookedVisitsForFacilitiesByOrgId()(orgId);
+
+    const facilitiesWithVisitTotals = facilities?.map((facility) => {
+      facility.bookedVisits =
+        hospitalVisitTotals.find(({ id }) => id === facility.id)?.total ||
+        0;
+      return facility;
+    });
 
     return {
       props: {
-        hospitals: hospitalsWithVisitTotals,
-        hospitalError: hospitalsResponse.error,
-        trust: { name: trustResponse.trust?.name },
-        trustError: trustResponse.error,
+        hospitals: facilitiesWithVisitTotals || null,
+        organisation,
+        error: organisationError || facilitiesError || hospitalsVisitTotalError,
       },
     };
   })

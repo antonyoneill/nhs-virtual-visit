@@ -3,6 +3,7 @@ import { GridRow, GridColumn } from "../../../../src/components/Grid";
 import ActionLink from "../../../../src/components/ActionLink";
 import AnchorLink from "../../../../src/components/AnchorLink";
 import Layout from "../../../../src/components/Layout";
+import Text from "../../../../src/components/Text";
 import verifyToken from "../../../../src/usecases/verifyToken";
 import propsWithContainer from "../../../../src/middleware/propsWithContainer";
 import { WARD_STAFF } from "../../../../src/helpers/userTypes";
@@ -23,6 +24,21 @@ const EditVisitSuccess = () => (
         </div>
 
         <h2>What happens next</h2>
+
+        <Text>
+          The key contact will be notified of changes to the date or time of the
+          virtual visit.
+        </Text>
+
+        <Text>
+          Please ensure that the key contact has received an email or text
+          confirming their virtual visit.
+        </Text>
+
+        <Text>
+          If a confirmation is not received please edit the visit to ensure the
+          email and phone number are correct.
+        </Text>
 
         <ActionLink href={`/wards/book-a-visit`}>
           Book a virtual visit

@@ -1,7 +1,7 @@
 export default ({ getRetrieveVisitByCallId }) => async (callId, password) => {
   const retrieveVisitByCallId = await getRetrieveVisitByCallId();
 
-  const { scheduledCall, error } = await retrieveVisitByCallId(callId);
+  const { visit, error } = await retrieveVisitByCallId(callId);
 
   if (error) {
     return {
@@ -10,7 +10,7 @@ export default ({ getRetrieveVisitByCallId }) => async (callId, password) => {
     };
   }
 
-  const dbPassword = scheduledCall.callPassword;
+  const dbPassword = visit.callPassword;
 
   return {
     validCallPassword: dbPassword === "" || dbPassword === password,

@@ -1,43 +1,29 @@
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import Button from "../Button";
 import FormGroup from "../FormGroup";
-import Heading from "../Heading";
+import FormHeading from "../FormHeading";
 import Input from "../Input";
 import ErrorSummary from "../ErrorSummary";
 import Label from "../Label";
+import HintText from "../Hint";
 import Router from "next/router";
-import Select from "../../components/Select";
+import Form from "../../components/Form";
 import isPresent from "../../helpers/isPresent";
+import { hasError, errorMessage } from "../../helpers/pageErrorHandler";
 
-const AddWardForm = ({ errors, setErrors, hospitals, defaultHospitalId }) => {
-  const [hospitalId, setHospitalId] = useState(defaultHospitalId);
+const AddWardForm = ({ errors, setErrors, hospital }) => {
   const [wardName, setWardName] = useState("");
   const [wardCode, setWardCode] = useState("");
-  const [wardCodeConfirmation, setWardCodeConfirmation] = useState("");
+  const [wardPin, setWardPin] = useState("");
+  const [wardPinConfirmation, setWardPinConfirmation] = useState("");
 
-  const hasError = (field) =>
-    errors.find((error) => error.id === `${field}-error`);
-
-  const errorMessage = (field) => {
-    const error = errors.filter((err) => err.id === `${field}-error`);
-    return error.length === 1 ? error[0].message : "";
-  };
-
-  const onSubmit = useCallback(async (event) => {
-    event.preventDefault();
+  const onSubmit = async () => {
     const onSubmitErrors = [];
 
     const setWardNameError = (errors) => {
       errors.push({
         id: "ward-name-error",
         message: "Enter a ward name",
-      });
-    };
-
-    const setHospitalIdError = (errors) => {
-      errors.push({
-        id: "hospital-id-error",
-        message: "Select a hospital",
       });
     };
 
@@ -48,94 +34,118 @@ const AddWardForm = ({ errors, setErrors, hospitals, defaultHospitalId }) => {
       });
     };
 
-    const setWardCodeConfirmationError = (errors) => {
+    const setCreateWardApiError = (errors, message) => {
       errors.push({
-        id: "ward-code-confirmation-error",
-        message: "Confirm the ward code",
+        id: "create-department-api-error",
+        message,
+      });
+    };
+    const setWardPinError = (errors) => {
+      errors.push({
+        id: "ward-pin-error",
+        message: "Enter a pin code",
       });
     };
 
-    const setWardCodeConfirmationMismatchError = (errors) => {
+    const setWardPinLengthError = (errors) => {
       errors.push({
-        id: "ward-code-confirmation-error",
-        message: "Ward code confirmation does not match",
+        id: "ward-pin-length-error",
+        message: "Ward pin is only 4 characters",
       });
     };
 
-    const setUniqueWardCodeError = (errors) => {
+    const setWardPinConfirmationError = (errors) => {
       errors.push({
-        id: "ward-code-error",
-        message: "This ward code already exists. Enter a unique ward code",
+        id: "ward-pin-confirmation-error",
+        message: "Confirm the ward pin",
+      });
+    };
+
+    const setWardPinConfirmationMismatchError = (errors) => {
+      errors.push({
+        id: "ward-pin-confirmation-error",
+        message: "Ward pin confirmation does not match",
       });
     };
 
     if (!isPresent(wardName)) {
       setWardNameError(onSubmitErrors);
     }
-    if (!isPresent(hospitalId)) {
-      setHospitalIdError(onSubmitErrors);
-    }
     if (!isPresent(wardCode)) {
       setWardCodeError(onSubmitErrors);
     }
-    if (isPresent(wardCodeConfirmation)) {
-      if (wardCode !== wardCodeConfirmation) {
-        setWardCodeConfirmationMismatchError(onSubmitErrors);
+
+    if (isPresent(wardPin)) {
+      if (wardPin.length != 4) {
+        setWardPinLengthError(onSubmitErrors);
       }
     } else {
-      setWardCodeConfirmationError(onSubmitErrors);
+      setWardPinError(onSubmitErrors);
+    }
+
+    if (isPresent(wardPinConfirmation)) {
+      if (wardPin !== wardPinConfirmation) {
+        setWardPinConfirmationMismatchError(onSubmitErrors);
+      }
+    } else {
+      setWardPinConfirmationError(onSubmitErrors);
     }
 
     if (onSubmitErrors.length === 0) {
-      const submitAnswers = async ({ wardName, wardCode }) => {
-        let name = wardName;
-        let code = wardCode;
-
-        const response = await fetch("/api/create-ward", {
+      const submitAnswers = async ({ wardName: name, wardCode: code, wardPin: pin }) => {
+        const completeCode = `${hospital.code}-${code}`;
+        const response = await fetch("/api/create-department", {
           method: "POST",
           headers: {
             "content-type": "application/json",
           },
           body: JSON.stringify({
             name,
-            code,
-            hospitalId,
+            code:  completeCode,
+            pin,
+            facilityId: hospital.id,
           }),
         });
 
         const status = response.status;
 
         if (status == 201) {
-          const { wardId } = await response.json();
+          const { uuid } = await response.json();
           Router.push({
-            pathname: `/trust-admin/wards/${wardId}/add-success`,
+            pathname: `/trust-admin/hospitals/${hospital.uuid}/wards/${uuid}/add-ward-success`,
+            query: { hospitalName: hospital.name },
           });
+
+          return true;
         } else {
-          setUniqueWardCodeError(onSubmitErrors);
+          const { error: errorMessage } = await response.json();
+          setCreateWardApiError(onSubmitErrors, errorMessage);
           setErrors(onSubmitErrors);
         }
+
+        return false;
       };
 
-      await submitAnswers({ wardName, wardCode });
+      return await submitAnswers({ wardName, wardCode, wardPin });
     }
     setErrors(onSubmitErrors);
-  });
+  };
+
   return (
     <>
       <ErrorSummary errors={errors} />
-      <form onSubmit={onSubmit}>
-        <Heading>Add a ward</Heading>
+      <Form onSubmit={onSubmit}>
+        <FormHeading>Add a ward</FormHeading>
         <FormGroup>
-          <Label htmlFor="ward-name" className="nhsuk-label--l">
+          <Label htmlFor="ward-name" className="nhsuk-label--m">
             What is the ward name?
           </Label>
           <Input
             id="ward-name"
             type="text"
-            hasError={hasError("ward-name")}
-            errorMessage={errorMessage("ward-name")}
-            className="nhsuk-u-font-size-32 nhsuk-input--width-10"
-            style={{ padding: "16px!important", height: "64px" }}
+            className="nhsuk-u-width-two-thirds"
+            hasError={hasError(errors, "ward-name")}
+            errorMessage={errorMessage(errors, "ward-name")}
             onChange={(event) => setWardName(event.target.value)}
             name="ward-name"
             autoComplete="off"
@@ -143,58 +153,58 @@ const AddWardForm = ({ errors, setErrors, hospitals, defaultHospitalId }) => {
           />
         </FormGroup>
         <FormGroup>
-          <Label htmlFor="hospital-id" className="nhsuk-label--l">
-            What is the hospital name?
-          </Label>
-          <Select
-            id="hospital-id"
-            className="nhsuk-input--width-10 nhsuk-u-width-one-half"
-            prompt="Choose a hospital"
-            options={hospitals}
-            onChange={(event) => {
-              setHospitalId(event.target.value);
-            }}
-            hasError={hasError("hospital-id")}
-            errorMessage={errorMessage("hospital-id")}
-            defaultValue={defaultHospitalId}
-          />
-        </FormGroup>
-        <FormGroup>
-          <Label htmlFor="ward-code" className="nhsuk-label--l">
+          <Label htmlFor="ward-code" className="nhsuk-label--m" style={{ marginBottom: "0px" }}>
             Create a ward code
           </Label>
+          <HintText>The ward code should be a unique identifier for your ward, and a mixture of letters and numbers, e.g FAX11</HintText>
           <Input
             id="ward-code"
             type="text"
-            hasError={hasError("ward-code")}
-            errorMessage={errorMessage("ward-code")}
-            className="nhsuk-u-font-size-32 nhsuk-input--width-10"
-            style={{ padding: "16px!important", height: "64px" }}
+            hasError={hasError(errors, "ward-code")}
+            errorMessage={errorMessage(errors, "ward-code")}
+            className="nhsuk-input--width-10"
             onChange={(event) => setWardCode(event.target.value)}
             name="ward-code"
             autoComplete="off"
             value={wardCode || ""}
           />
+          <HintText>Ward Code: {hospital.code}-{wardCode}</HintText>
         </FormGroup>
         <FormGroup>
-          <Label htmlFor="ward-code-confirmation" className="nhsuk-label--l">
-            Confirm the ward code
+          <Label htmlFor="ward-pin" className="nhsuk-label--m" style={{ marginBottom: "0px" }}>
+            Create a ward pin
+          </Label>
+          <HintText>The ward pin should be a 4 digit number, e.g. 0000</HintText>
+          <Input
+            id="ward-pin"
+            type="password"
+            hasError={hasError(errors, "ward-pin")}
+            errorMessage={errorMessage(errors, "ward-pin")}
+            className="nhsuk-input--width-10"
+            onChange={(event) => setWardPin(event.target.value)}
+            name="ward-pin"
+            autoComplete="off"
+            value={wardPin || ""}
+          />
+        </FormGroup>
+        <FormGroup>
+          <Label htmlFor="ward-pin-confirmation" className="nhsuk-label--m">
+            Confirm the ward pin
           </Label>
           <Input
-            id="ward-code-confirmation"
-            type="text"
-            hasError={hasError("ward-code-confirmation")}
-            errorMessage={errorMessage("ward-code-confirmation")}
-            className="nhsuk-u-font-size-32 nhsuk-input--width-10"
-            style={{ padding: "16px!important", height: "64px" }}
-            onChange={(event) => setWardCodeConfirmation(event.target.value)}
-            name="ward-code-confirmation"
+            id="ward-pin-confirmation"
+            type="password"
+            hasError={hasError(errors, "ward-pin-confirmation")}
+            errorMessage={errorMessage(errors, "ward-pin-confirmation")}
+            className="nhsuk-input--width-10"
+            onChange={(event) => setWardPinConfirmation(event.target.value)}
+            name="ward-pin-confirmation"
             autoComplete="off"
-            value={wardCodeConfirmation || ""}
+            value={wardPinConfirmation || ""}
           />
         </FormGroup>
         <Button className="nhsuk-u-margin-top-5">Add ward</Button>
-      </form>
+      </Form>
     </>
   );
 };

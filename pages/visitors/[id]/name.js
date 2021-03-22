@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Button from "../../../src/components/Button";
 import FormGroup from "../../../src/components/FormGroup";
@@ -12,8 +12,14 @@ import BackLink from "../../../src/components/BackLink";
 import ErrorSummary from "../../../src/components/ErrorSummary";
 import propsWithContainer from "../../../src/middleware/propsWithContainer";
 import Error from "next/error";
+import Form from "../../../src/components/Form";
+import { v4 as uuidv4 } from "uuid";
+import { hasError } from "../../../src/helpers/pageErrorHandler";
 
-const Name = ({ callId, error, callPassword }) => {
+const Name = ({ callId, error, callPassword, correlationId }) => {
+  useEffect(() => {
+    console.log(correlationId);
+  }, []);
   const router = useRouter();
   if (error) {
     return <Error />;
@@ -28,11 +34,7 @@ const Name = ({ callId, error, callPassword }) => {
   const [name, setName] = useState("");
   const [errors, setErrors] = useState([]);
 
-  const hasError = (field) =>
-    errors.find((error) => error.id === `${field}-error`);
-
-  const onSubmit = useCallback(async (event) => {
-    event.preventDefault();
+  const onSubmit = async () => {
     const errors = [];
 
     if (!name) {
@@ -45,11 +47,15 @@ const Name = ({ callId, error, callPassword }) => {
     setErrors(errors);
 
     if (errors.length === 0) {
-      router.push(
+      await router.push(
+        `/visits/[id]?name=${name}&callPassword=${callPassword}`,
         `/visits/${router.query.id}?name=${name}&callPassword=${callPassword}`
       );
+      return true;
     }
-  });
+
+    return false;
+  };
 
   return (
     <Layout
@@ -62,7 +68,7 @@ const Name = ({ callId, error, callPassword }) => {
         <GridColumn width="two-thirds">
           <ErrorSummary errors={errors} />
 
-          <form onSubmit={onSubmit}>
+          <Form onSubmit={onSubmit}>
             <FormGroup>
               <LabelHeader
                 htmlFor="name"
@@ -81,7 +87,7 @@ const Name = ({ callId, error, callPassword }) => {
                 id="name"
                 type="text"
                 onChange={(event) => setName(event.target.value)}
-                hasError={hasError("name")}
+                hasError={hasError(errors, "name")}
                 errorMessage={nameError}
                 name="name"
               />
@@ -94,7 +100,7 @@ const Name = ({ callId, error, callPassword }) => {
 
               <Button>Attend visit</Button>
             </FormGroup>
-          </form>
+          </Form>
         </GridColumn>
       </GridRow>
     </Layout>
@@ -102,7 +108,8 @@ const Name = ({ callId, error, callPassword }) => {
 };
 
 export const getServerSideProps = propsWithContainer(
-  async ({ query, container, res }) => {
+  async ({ query, container }) => {
+    const { logger } = container;
     const { id: callId, callPassword } = query;
 
     const verifyCallPassword = container.getVerifyCallPassword();
@@ -112,14 +119,17 @@ export const getServerSideProps = propsWithContainer(
       callPassword
     );
 
-    if (!validCallPassword) {
-      res.writeHead(307, {
-        Location: "/error",
-      });
-      res.end();
+    const correlationId = `${uuidv4()}-visitor-attended-visit`;
+
+    if (error) {
+      logger.error(`Call password invalid in name.js`, error);
     }
-    console.log("name.js error", error);
-    return { props: { callId, error, callPassword } };
+
+    if (!validCallPassword) {
+      return { props: { error: "Unauthorized" } };
+    }
+
+    return { props: { callId, error, callPassword, correlationId } };
   }
 );
 

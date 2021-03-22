@@ -7,7 +7,7 @@ import retrieveVisitByCallId from "../../src/usecases/retrieveVisitByCallId";
 import deleteVisitByCallId from "../../src/usecases/deleteVisitByCallId";
 import propsWithContainer from "../../src/middleware/propsWithContainer";
 import Error from "next/error";
-import formatDateAndTime from "../../src/helpers/formatDateAndTime";
+import formatDateAndTime from "../../src/helpers/formatDatesAndTimes";
 import { WARD_STAFF } from "../../src/helpers/userTypes";
 
 const deleteVisitSuccess = ({
@@ -62,22 +62,23 @@ const deleteVisitSuccess = ({
 export const getServerSideProps = propsWithContainer(
   verifyToken(async ({ query, container }) => {
     const { callId } = query;
-    let { scheduledCall, error } = await retrieveVisitByCallId(container)(
-      callId
-    );
+    let { visit: scheduledCall, error } = await retrieveVisitByCallId(
+      container
+    )(callId);
+
     if (error && !scheduledCall) {
       scheduledCall = {
         patientName: "",
-        callTime: "",
       };
     }
 
-    let { error: deleteError } = await deleteVisitByCallId(container)(callId);
+    const getDeleteVisitByCallId = deleteVisitByCallId(container);
+    let { error: deleteError } = await getDeleteVisitByCallId(callId);
 
     return {
       props: {
         patientName: scheduledCall.patientName,
-        callDateAndTime: scheduledCall.callTime,
+        callDateAndTime: scheduledCall.callTime?.toISOString() || "",
         error,
         deleteError,
       },

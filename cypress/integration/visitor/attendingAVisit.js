@@ -1,8 +1,9 @@
+import { ThenISeeAnError } from "../commonSteps";
 describe("As a patient's key contact, I want to attend a virtual visit so that I can speak with my loved one.", () => {
   before(() => {
     // reset and seed the database
     cy.exec(
-      "npm run dbmigratetest reset && npm run dbmigratetest up && npm run db:seed"
+      "npm run dbmigratetest reset:mssql && npm run dbmigratetest up:mssql"
     );
   });
 
@@ -10,17 +11,21 @@ describe("As a patient's key contact, I want to attend a virtual visit so that I
     GivenIAmAKeyContact();
     WhenIVisitTheAttendAVirtualVisitPageWithACallPassword();
     ThenISeeTheAttendAVirtualStartPage();
+    cy.audit();
 
     WhenIClickOnStartNow();
     ThenISeeTheWhatIsYourNamePage();
+    cy.audit();
 
     WhenIEnterMyName();
     AndISubmitTheForm();
     ThenISeeAVideoFrame();
     AndISeeAnEndCallButton();
+    cy.audit();
 
     WhenIClickOnEndCall();
     ThenISeeTheVirtualVisitIsCompleted();
+    cy.audit();
     AndIDoNotSeeLinksForWardStaff();
   });
 
@@ -40,7 +45,9 @@ describe("As a patient's key contact, I want to attend a virtual visit so that I
   function GivenIAmAKeyContact() {}
 
   function WhenIVisitTheAttendAVirtualVisitPageWithACallPassword() {
-    cy.visit("http://localhost:3001/visitors/123/start?callPassword=password");
+    cy.visit(
+      "http://localhost:3001/visitors/3611b934-e574-4192-b443-e05753660cc5/start?callPassword=password"
+    );
   }
 
   function ThenISeeTheAttendAVirtualStartPage() {
@@ -80,16 +87,12 @@ describe("As a patient's key contact, I want to attend a virtual visit so that I
   }
 
   function AndIDoNotSeeLinksForWardStaff() {
-    cy.get("Return to virtual visits").should("not.be.visible");
-    cy.get("Rebook another virtual visit").should("not.be.visible");
+    cy.get("Return to virtual visits").should("not.exist");
+    cy.get("Rebook another virtual visit").should("not.exist");
   }
 
   // Displays errors when fields have been left blank
   function WhenISubmitFormWithoutFillingAnythingOut() {
     cy.get("button").contains("Attend visit").click();
-  }
-
-  function ThenISeeAnError() {
-    cy.contains("There is a problem").should("be.visible");
   }
 });

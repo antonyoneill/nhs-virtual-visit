@@ -1,107 +1,87 @@
-import RandomIdProvider from "../../src/providers/RandomIdProvider";
 import withContainer from "../../src/middleware/withContainer";
-import validateVisit from "../../src/helpers/validateVisit";
-import CallIdProvider from "../../src/providers/CallIdProvider";
-
-const ids = new RandomIdProvider();
+import {
+  validateHttpMethod,
+  checkIfAuthorised,
+} from "../../src/helpers/apiErrorHandler";
 
 export default withContainer(
   async ({ headers, body, method }, res, { container }) => {
-    if (method !== "POST") {
-      res.status(406);
-      res.end();
-      return;
-    }
+    validateHttpMethod("POST", method, res);
 
-    const userIsAuthenticated = container.getUserIsAuthenticated();
-    const userIsAuthenticatedResponse = await userIsAuthenticated(
+    const userIsAuthenticatedInstance = container.getUserIsAuthenticated();
+    const userIsAuthenticatedResponse = await userIsAuthenticatedInstance(
       headers.cookie
     );
 
-    if (!userIsAuthenticatedResponse) {
-      res.status(401);
-      res.end(JSON.stringify({ err: "Unauthorized" }));
+    checkIfAuthorised(userIsAuthenticatedResponse, res);
+
+    let { wardId, trustId } = userIsAuthenticatedResponse;
+    if (!trustId) {
+      res.status(400);
+      res.end(JSON.stringify({ err: "no trustId" }));
+      return;
+    }
+    if (!wardId) {
+      res.status(400);
+      res.end(JSON.stringify({ err: "no wardId" }));
       return;
     }
 
     res.setHeader("Content-Type", "application/json");
-    const { validVisit, errors } = validateVisit({
-      patientName: body.patientName,
-      contactName: body.contactName,
-      contactEmail: body.contactEmail,
-      contactNumber: body.contactNumber,
-      callTime: body.callTime,
-    });
 
-    if (!validVisit) {
+    const {
+      organisation: trust,
+      error: trustErr,
+    } = await container.getRetrieveOrganisationById()(trustId);
+
+    if (trustErr) {
       res.status(400);
-      res.end(JSON.stringify({ err: errors }));
+      res.end(JSON.stringify({ trustErr }));
       return;
     }
 
+    const {
+      department: ward,
+      error: wardErr,
+    } = await container.getRetrieveDepartmentById()(wardId, trustId);
+    if (wardErr) {
+      res.status(400);
+      res.end(JSON.stringify({ wardErr }));
+      return;
+    }
+
+    const callPassword = container.getRandomIdProvider().generate(10);
+    const provider = container.getCallIdProvider(
+      trust.videoProvider,
+      body.callTime
+    );
+    const callId = await provider.generate();
+    const callTime = new Date(body.callTime);
+
     try {
-      let { wardId, trustId } = userIsAuthenticatedResponse;
-
-      const { trust, error: trustErr } = await container.getRetrieveTrustById()(
-        trustId
+      const { success, err } = await container.getCreateVisit()(
+        {
+          patientName: body.patientName,
+          recipientEmail: body.contactEmail,
+          recipientNumber: body.contactNumber,
+          recipientName: body.contactName,
+          callTime: callTime,
+          callTimeLocal: body.callTimeLocal,
+        },
+        ward,
+        callId,
+        callPassword,
+        trust.videoProvider
       );
-      if (trustErr) {
-        throw trustErr;
-      }
 
-      const callIdProvider = new CallIdProvider(
-        trust.videoProvider,
-        body.callTime
-      );
-      const callId = await callIdProvider.generate();
-      let callPassword = ids.generate();
-
-      const createVisit = container.getCreateVisit();
-      const updateWardVisitTotals = container.getUpdateWardVisitTotals();
-
-      const { ward, error } = await container.getRetrieveWardById()(
-        wardId,
-        trustId
-      );
-      if (error) {
-        throw error;
-      }
-
-      await createVisit({
-        patientName: body.patientName,
-        contactEmail: body.contactEmail,
-        contactNumber: body.contactNumber,
-        contactName: body.contactName,
-        callTime: body.callTime,
-        callTimeLocal: body.callTimeLocal,
-        callId: callId,
-        provider: trust.videoProvider,
-        wardId: ward.id,
-        callPassword: callPassword,
-      });
-
-      await updateWardVisitTotals({ wardId: ward.id, date: body.callTime });
-
-      const sendBookingNotification = container.getSendBookingNotification();
-
-      const {
-        success: bookingNotificationSuccess,
-        errors: bookingNotificationErrors,
-      } = await sendBookingNotification({
-        mobileNumber: body.contactNumber,
-        emailAddress: body.contactEmail,
-        wardName: ward.name,
-        hospitalName: ward.hospitalName,
-        visitDateAndTime: body.callTime,
-      });
-
-      if (bookingNotificationSuccess) {
-        res.status(201);
-        res.end(JSON.stringify({ success: true }));
-      } else {
+      if (!success) {
         res.status(400);
-        res.end(JSON.stringify({ err: bookingNotificationErrors }));
+        res.end(JSON.stringify({ err }));
+        return;
       }
+
+      res.status(201);
+      res.end(JSON.stringify({ success: true }));
     } catch (err) {
       console.error(err);
       res.status(500);

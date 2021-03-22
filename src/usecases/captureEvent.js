@@ -1,33 +1,17 @@
-import moment from "moment";
+const captureEvent = ({ getCaptureEventGateway, logger }) => async ({
+  action,
+  visitId,
+  callSessionId,
+}) => {
+  logger.info(
+    `Capture events action ${action}, visitId ${visitId}, callSessionId ${callSessionId}`
+  );
 
-const captureEvent = ({ getDb }) => async ({ action, visitId, sessionId }) => {
-  const db = await getDb();
-  const timestamp = moment().utc().toISOString();
-
-  try {
-    const event = await db.one(
-      `INSERT INTO events
-          (id, time, action, visit_id, session_id)
-          VALUES (default, $1, $2, $3, $4)
-          RETURNING id`,
-      [timestamp, action, visitId, sessionId]
-    );
-
-    return {
-      event: {
-        id: event.id,
-        time: timestamp,
-        action: action,
-        visitId: visitId,
-        sessionId: sessionId,
-      },
-      error: null,
-    };
-  } catch (err) {
-    console.log(err);
-    const message = `Failed to add ${action} event for visit ${visitId}`;
-    return { event: null, error: message };
-  }
+  return await getCaptureEventGateway()({
+    action,
+    visitId,
+    callSessionId,
+  });
 };
 
 export default captureEvent;

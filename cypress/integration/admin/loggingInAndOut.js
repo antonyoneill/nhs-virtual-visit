@@ -1,81 +1,73 @@
+import { 
+  thenIClickLogOut, 
+  WhenIVisitTheLandingPage, 
+  AndIClickTheLinkToManageYourTrustPage,
+  WhenIVisitTheManageYourTrustLoginPage,
+  ThenISeeTheManageYourTrustLoginPage,
+  ThenISeeTheLandingPage,
+  ThenISeeAnError
+} from "../commonSteps";
+
 describe("As an admin, I want to log in so that I can access the service.", () => {
   before(() => {
     // reset and seed the database
     cy.exec(
-      "npm run dbmigratetest reset && npm run dbmigratetest up && npm run db:seed"
+      "npm run dbmigratetest reset:mssql && npm run dbmigratetest up:mssql"
     );
   });
 
   it("allows an admin to log in and out", () => {
     GivenIAmAnAdmin();
-    WhenIVisitTheAdminLogInPage();
-    AndIEnterAValidAdminCodeAndPassword();
+    WhenIVisitTheLandingPage();
+    AndIClickTheLinkToManageYourTrustPage();
+    ThenISeeTheManageYourTrustLoginPage();
+    cy.audit();
+
+    WhenIEnterAValidAdminEmailAndPassword();
     AndISubmitTheForm();
     ThenISeeTheAdminHomePage();
 
-    WhenIClickLogOut();
-    ThenISeeTheAdminLogInPage();
+    cy.audit();
+
+    thenIClickLogOut();
+    ThenISeeTheLandingPage();
   });
 
-  it("displays an error for an invalid code", () => {
-    WhenIVisitTheAdminLogInPage();
-    AndIEnterAnInvalidCode();
+  it("displays an error for an invalid email", () => {
+    WhenIVisitTheManageYourTrustLoginPage();
+    AndIEnterAnInvalidEmail();
     AndISubmitTheForm();
     ThenISeeAnError();
   });
 
   it("displays an error for an invalid password", () => {
-    WhenIVisitTheAdminLogInPage();
+    WhenIVisitTheManageYourTrustLoginPage();
     AndIEnterAnInvalidPassword();
     AndISubmitTheForm();
     ThenISeeAnError();
   });
 
-  function WhenIVisitTheAdminLogInPage() {
-    cy.visit(Cypress.env("baseUrl") + "/admin/login");
-  }
-
   function AndISubmitTheForm() {
     cy.get("button").contains("Log in").click();
   }
-
   // Allows an admin to log in and out
   function GivenIAmAnAdmin() {}
-
-  function AndIEnterAValidAdminCodeAndPassword() {
-    cy.get("input[name=code]").type(Cypress.env("validAdminCode"));
+  function WhenIEnterAValidAdminEmailAndPassword() {
+    cy.get("input[name=email]").type(Cypress.env("validAdminEmail"));
     cy.get("input[name=password]").type(Cypress.env("validAdminPassword"));
   }
-
   function ThenISeeTheAdminHomePage() {
-    cy.contains("There is a problem").should("not.be.visible");
+    cy.contains("There is a problem").should("not.exist");
     cy.contains("Site administration").should("be.visible");
   }
-
-  function WhenIClickLogOut() {
-    cy.get("a.nhsuk-header__navigation-link").contains("Log out").click();
-  }
-
-  function ThenISeeTheAdminLogInPage() {
-    cy.get("h1").should("contain", "Log in to manage your site");
-  }
-
-  // Displays an error for an invalid code
-  function AndIEnterAnInvalidCode() {
-    cy.get("input[name=code]").type("wrong");
+  // Displays an error for an invalid email
+  function AndIEnterAnInvalidEmail() {
+    cy.get("input[name=email]").type("wrong@email.com");
     cy.get("input[name=password]").type(Cypress.env("validAdminPassword"));
   }
-
-  // Displays an error for an invalid code
+  // Displays an error for an invalid password
   function AndIEnterAnInvalidPassword() {
-    cy.get("input[name=code]").type(Cypress.env("validAdminCode"));
+    cy.get("input[name=email]").type(Cypress.env("validAdminEmail"));
     cy.get("input[name=password]").type("wrong");
-  }
-
-  function ThenISeeAnError() {
-    cy.contains("There is a problem").should("be.visible");
-    cy.contains("The code or password you entered was not recognised").should(
-      "be.visible"
-    );
   }
 });
